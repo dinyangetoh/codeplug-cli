@@ -30,8 +30,16 @@
     "ai",
     "ml"
   ],
-  "author": "",
+  "author": "David Inyang-Etoh (dinyangetoh)",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dinyangetoh/codeplug-cli.git"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
   "engines": {
     "node": ">=20.0.0"
   },
