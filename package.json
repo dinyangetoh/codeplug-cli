@@ -1,5 +1,5 @@
 {
-  "name": "@codeplug/cli",
+  "name": "@dinyangetoh/codeplug-cli",
   "version": "0.1.0",
   "description": "The source of truth for codebase understanding & governance",
   "type": "module",

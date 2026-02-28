@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Version** | 1.0 — Focused MVP |
-| **npm package** | `@codeplug/cli` |
+| **npm package** | `@dinyangetoh/codeplug-cli` |
 | **License** | MIT (Open Source) |
 | **Distribution** | CLI-first, local-first |
 | **Date** | February 28, 2026 |
@@ -445,7 +445,7 @@ codeplug export --check             # verify exports are up to date
 ### 7.2 Project Structure
 
 ```
-@codeplug/cli/
+@dinyangetoh/codeplug-cli/
 ├── src/
 │   ├── cli/                    # Commander.js entry, command registration
 │   │   └── commands/           # convention/, docs/, export/
@@ -529,7 +529,7 @@ codeplug export --check             # verify exports are up to date
 |---|---|---|
 | 10 | Export engine | Claude, Cursor, Copilot, and JSON export formatters + template system |
 | 11 | CI integration + polish | CI enforcement config, error handling, documentation, >80% test coverage |
-| 12 | Release | `npm publish @codeplug/cli`, v1.0.0, GitHub release, full README |
+| 12 | Release | `npm publish @dinyangetoh/codeplug-cli`, v1.0.0, GitHub release, full README |
 
 ---
 
