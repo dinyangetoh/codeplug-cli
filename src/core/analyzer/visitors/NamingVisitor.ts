@@ -1,5 +1,6 @@
 import type { AstVisitor, VisitorFinding } from './types.js';
 import type { ParsedFile } from '../AstAnalyzer.js';
+import traverse from '@babel/traverse';
 import { basename, extname } from 'node:path';
 
 const PASCAL_CASE = /^[A-Z][a-zA-Z0-9]*$/;
@@ -57,11 +58,10 @@ export class NamingVisitor implements AstVisitor {
 
   private visitConstants(file: ParsedFile, findings: VisitorFinding[]): void {
     try {
-      const traverse = require('@babel/traverse').default ?? require('@babel/traverse');
-
       let screamingCount = 0;
       let constCount = 0;
 
+      // @ts-expect-error -- @babel/traverse CJS default export not resolved under NodeNext
       traverse(file.ast, {
         VariableDeclarator(path: { node: { id: { type: string; name: string }; init: { type: string } | null } }) {
           const { node } = path;

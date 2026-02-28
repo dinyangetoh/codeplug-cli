@@ -1,5 +1,5 @@
 import { basename } from 'node:path';
-import type { DocumentGenerator, GenerationContext } from './types.js';
+import type { DocumentGenerator, GenerationContext, LlmRequiredContext } from './types.js';
 
 export class ContributingGenerator implements DocumentGenerator {
   async generate(ctx: GenerationContext): Promise<string> {
@@ -15,7 +15,7 @@ export class ContributingGenerator implements DocumentGenerator {
     const template = sections.join('\n');
 
     if (ctx.llmAvailable && ctx.llmClient) {
-      return this.enhanceWithLlm(ctx, template);
+      return this.enhanceWithLlm(ctx as LlmRequiredContext, template);
     }
     return template;
   }
@@ -86,14 +86,14 @@ export class ContributingGenerator implements DocumentGenerator {
     ].join('\n');
   }
 
-  private async enhanceWithLlm(ctx: GenerationContext, template: string): Promise<string> {
+  private async enhanceWithLlm(ctx: LlmRequiredContext, template: string): Promise<string> {
     const prompt = [
       `Improve this CONTRIBUTING.md for a ${ctx.audience} audience in a ${ctx.style} style.`,
       'Make it welcoming and actionable. Return only the final markdown.\n',
       template,
     ].join('\n');
 
-    return ctx.llmClient!.generate(prompt, {
+    return ctx.llmClient.generate(prompt, {
       systemPrompt: 'You are a technical writer creating contributor documentation.',
       temperature: 0.3,
       maxTokens: 2000,

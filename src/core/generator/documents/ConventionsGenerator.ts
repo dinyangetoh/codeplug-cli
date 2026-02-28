@@ -1,5 +1,5 @@
 import type { Convention } from '../../../config/types.js';
-import type { DocumentGenerator, GenerationContext } from './types.js';
+import type { DocumentGenerator, GenerationContext, LlmRequiredContext } from './types.js';
 
 export class ConventionsGenerator implements DocumentGenerator {
   async generate(ctx: GenerationContext): Promise<string> {
@@ -12,7 +12,7 @@ export class ConventionsGenerator implements DocumentGenerator {
     const template = sections.join('\n');
 
     if (ctx.llmAvailable && ctx.llmClient) {
-      return this.enhanceWithLlm(ctx, template);
+      return this.enhanceWithLlm(ctx as LlmRequiredContext, template);
     }
     return template;
   }
@@ -60,14 +60,14 @@ export class ConventionsGenerator implements DocumentGenerator {
     return lines.join('\n');
   }
 
-  private async enhanceWithLlm(ctx: GenerationContext, template: string): Promise<string> {
+  private async enhanceWithLlm(ctx: LlmRequiredContext, template: string): Promise<string> {
     const prompt = [
       `Improve this CONVENTIONS.md for a ${ctx.audience} audience in a ${ctx.style} style.`,
       'Make descriptions concise and actionable. Return only the final markdown.\n',
       template,
     ].join('\n');
 
-    return ctx.llmClient!.generate(prompt, {
+    return ctx.llmClient.generate(prompt, {
       systemPrompt: 'You are a technical writer documenting coding conventions.',
       temperature: 0.3,
       maxTokens: 2000,

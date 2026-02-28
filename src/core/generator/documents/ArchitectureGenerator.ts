@@ -1,6 +1,6 @@
 import { basename } from 'node:path';
 import type { FolderNode } from '../../../config/types.js';
-import type { DocumentGenerator, GenerationContext } from './types.js';
+import type { DocumentGenerator, GenerationContext, LlmRequiredContext } from './types.js';
 
 export class ArchitectureGenerator implements DocumentGenerator {
   async generate(ctx: GenerationContext): Promise<string> {
@@ -17,7 +17,7 @@ export class ArchitectureGenerator implements DocumentGenerator {
     const template = sections.join('\n');
 
     if (ctx.llmAvailable && ctx.llmClient) {
-      return this.enhanceWithLlm(ctx, template);
+      return this.enhanceWithLlm(ctx as LlmRequiredContext, template);
     }
     return template;
   }
@@ -98,7 +98,7 @@ export class ArchitectureGenerator implements DocumentGenerator {
     return lines.join('\n');
   }
 
-  private async enhanceWithLlm(ctx: GenerationContext, template: string): Promise<string> {
+  private async enhanceWithLlm(ctx: LlmRequiredContext, template: string): Promise<string> {
     const prompt = [
       `Improve this ARCHITECTURE.md for a ${ctx.audience} audience in a ${ctx.style} style.`,
       'Add mermaid diagrams where appropriate to illustrate component relationships and data flow.',
@@ -106,7 +106,7 @@ export class ArchitectureGenerator implements DocumentGenerator {
       template,
     ].join('\n');
 
-    return ctx.llmClient!.generate(prompt, {
+    return ctx.llmClient.generate(prompt, {
       systemPrompt: 'You are a software architect writing clear documentation.',
       temperature: 0.3,
       maxTokens: 3000,

@@ -1,5 +1,6 @@
 import type { AstVisitor, VisitorFinding } from './types.js';
 import type { ParsedFile } from '../AstAnalyzer.js';
+import traverse from '@babel/traverse';
 import { basename } from 'node:path';
 
 export class ImportVisitor implements AstVisitor {
@@ -11,8 +12,7 @@ export class ImportVisitor implements AstVisitor {
     let barrelImportCount = 0;
 
     try {
-      const traverse = require('@babel/traverse').default ?? require('@babel/traverse');
-
+      // @ts-expect-error -- @babel/traverse CJS default export not resolved under NodeNext
       traverse(file.ast, {
         ImportDeclaration(path: {
           node: {

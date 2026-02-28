@@ -1,5 +1,6 @@
 import type { AstVisitor, VisitorFinding } from './types.js';
 import type { ParsedFile } from '../AstAnalyzer.js';
+import traverse from '@babel/traverse';
 
 export class ErrorHandlingVisitor implements AstVisitor {
   visit(file: ParsedFile): VisitorFinding[] {
@@ -8,8 +9,7 @@ export class ErrorHandlingVisitor implements AstVisitor {
     let asyncFnCount = 0;
 
     try {
-      const traverse = require('@babel/traverse').default ?? require('@babel/traverse');
-
+      // @ts-expect-error -- @babel/traverse CJS default export not resolved under NodeNext
       traverse(file.ast, {
         TryStatement() {
           tryCatchCount++;

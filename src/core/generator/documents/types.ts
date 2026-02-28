@@ -11,6 +11,8 @@ export interface GenerationContext {
   llmClient?: LlmClient;
 }
 
+export type LlmRequiredContext = GenerationContext & { llmClient: LlmClient };
+
 export interface DocumentGenerator {
   generate(context: GenerationContext): Promise<string>;
 }
