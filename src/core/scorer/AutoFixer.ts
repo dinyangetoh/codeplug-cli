@@ -1,7 +1,9 @@
-import { join, dirname, basename, extname } from 'node:path';
+import { join, dirname, extname } from 'node:path';
 import type { Violation } from '../../config/types.js';
 
-type Chalk = typeof import('chalk').default;
+import type ChalkType from 'chalk';
+
+type Chalk = typeof ChalkType;
 
 export class AutoFixer {
   constructor(private projectRoot: string) {}

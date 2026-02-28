@@ -43,7 +43,6 @@ export async function handleDocsStatus(): Promise<void> {
 }
 
 export async function handleDocsUpdate(): Promise<void> {
-  const chalk = (await import('chalk')).default;
   const ora = (await import('ora')).default;
   const { DocGenerator } = await import('../../core/generator/DocGenerator.js');
 

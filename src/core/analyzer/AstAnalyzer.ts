@@ -1,6 +1,6 @@
-import { join, relative, extname } from 'node:path';
+import { join, extname } from 'node:path';
 import { readFile } from 'node:fs/promises';
-import type { AnalysisResult, DetectedPattern, FolderNode } from '../../config/types.js';
+import type { AnalysisResult, FolderNode } from '../../config/types.js';
 
 const SUPPORTED_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
 const BATCH_SIZE = 50;
@@ -112,8 +112,11 @@ export class AstAnalyzer {
   }
 }
 
+import type { ParseResult } from '@babel/parser';
+import type { File as BabelFile } from '@babel/types';
+
 export interface ParsedFile {
   filePath: string;
   code: string;
-  ast: import('@babel/parser').ParseResult<import('@babel/types').File>;
+  ast: ParseResult<BabelFile>;
 }

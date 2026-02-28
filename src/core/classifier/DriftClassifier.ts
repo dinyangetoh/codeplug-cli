@@ -1,6 +1,9 @@
 import type { Convention, Dimension } from '../../config/types.js';
 import type { CommitDiff } from '../git/GitIntegration.js';
+import type ChalkType from 'chalk';
 import { ConfidenceGate } from './ConfidenceGate.js';
+
+type Chalk = typeof ChalkType;
 
 export interface DriftResult {
   file: string;
@@ -326,7 +329,7 @@ export class DriftClassifier {
   private printReport(
     results: Array<DriftResult & { commitHash: string }>,
     commitCount: number,
-    chalk: typeof import('chalk').default,
+    chalk: Chalk,
   ): void {
     console.log('');
     console.log(chalk.bold(`Drift Report — ${commitCount} recent commits scanned`));
