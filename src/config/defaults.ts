@@ -28,3 +28,4 @@ export const CONVENTIONS_FILE = 'conventions.json';
 export const CONFIG_FILE = 'config.json';
 export const SCORE_DB_FILE = 'scores.db';
 export const DOC_HASHES_FILE = 'doc-hashes.json';
+export const VIOLATIONS_FILE = 'violations.json';

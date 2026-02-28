@@ -148,9 +148,14 @@ export interface ExportResult {
   files: string[];
 }
 
-export interface ModelRole {
-  classifier: string;
-  summarizer: string;
-  extractor: string;
-  ner: string;
+export interface NerEntityResult {
+  entity: string;
+  type: string;
+  score: number;
+}
+
+export interface PipelineResult {
+  summary: string;
+  extractions: string[];
+  entities: NerEntityResult[];
 }
