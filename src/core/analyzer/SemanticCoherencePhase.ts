@@ -209,7 +209,7 @@ export async function detectSemanticViolations(
   filePaths: string[],
   conventions: Convention[],
   modelTier: ModelTier,
-  options?: { semanticFitThreshold?: number },
+  options?: { semanticFitThreshold?: number; onProgress?: (msg: string) => void },
 ): Promise<Violation[]> {
   const convention = conventions.find(
     (c) =>
@@ -221,7 +221,11 @@ export async function detectSemanticViolations(
   if (tsFiles.length === 0) return [];
 
   const threshold = options?.semanticFitThreshold ?? 0.6;
-  const modelManager = new ModelManager(modelTier);
+  const onProgress = options?.onProgress;
+  onProgress?.("Loading Zero-shot classification...");
+  const modelManager = new ModelManager(modelTier, undefined, {
+    onLoaded: onProgress ? (d) => onProgress(`Loaded ${d}`) : undefined,
+  });
   const service = new SemanticCoherenceService(modelManager);
   const { randomUUID } = await import("node:crypto");
   const violations: Violation[] = [];

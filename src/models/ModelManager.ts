@@ -7,14 +7,20 @@ import { getModelSpec, type ModelRole, type ModelSpec } from './ModelRegistry.js
 
 const DEFAULT_CACHE_DIR = join(homedir(), '.codeplug', 'models');
 
+export interface ModelManagerOptions {
+  onLoaded?: (description: string) => void;
+}
+
 export class ModelManager {
   private loadedModel: { role: ModelRole; pipeline: unknown } | null = null;
   private cacheDir: string;
   private tier: ModelTier;
+  private onLoaded?: (description: string) => void;
 
-  constructor(tier: ModelTier, cacheDir?: string) {
+  constructor(tier: ModelTier, cacheDir?: string, opts?: ModelManagerOptions) {
     this.tier = tier;
     this.cacheDir = cacheDir ?? process.env['CODEPLUG_MODEL_CACHE'] ?? DEFAULT_CACHE_DIR;
+    this.onLoaded = opts?.onLoaded;
   }
 
   async ensureCacheDir(): Promise<void> {
@@ -35,8 +41,12 @@ export class ModelManager {
     const spec = getModelSpec(role, this.tier);
     await this.ensureCacheDir();
 
-    const ora = (await import('ora')).default;
-    const spinner = ora(`Loading ${spec.description} (~${spec.sizeEstimateMb}MB)...`).start();
+    const useCallback = !!this.onLoaded;
+    let spinner: { succeed: (t?: string) => void; fail: (t?: string) => void } | null = null;
+    if (!useCallback) {
+      const ora = (await import('ora')).default;
+      spinner = ora(`Loading ${spec.description} (~${spec.sizeEstimateMb}MB)...`).start();
+    }
 
     try {
       const { pipeline, env } = await import('@huggingface/transformers');
@@ -58,10 +68,14 @@ export class ModelManager {
       });
 
       this.loadedModel = { role, pipeline: pipe };
-      spinner.succeed(`Loaded ${spec.description}`);
+      if (useCallback && this.onLoaded) {
+        this.onLoaded(spec.description);
+      } else if (spinner) {
+        spinner.succeed(`Loaded ${spec.description}`);
+      }
       return pipe;
     } catch (err) {
-      spinner.fail(`Failed to load ${spec.description}`);
+      if (spinner) spinner.fail(`Failed to load ${spec.description}`);
       throw err;
     }
   }

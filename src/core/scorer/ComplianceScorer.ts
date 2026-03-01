@@ -78,7 +78,8 @@ export class ComplianceScorer {
 
       console.log(`${icons[sev]} ${chalk.bold(sev.toUpperCase())} (${group.length}):`);
       for (const v of group) {
-        console.log(chalk.red(`  ${v.file}${v.line ? `:${v.line}` : ''}`));
+        const scoreSuffix = v.fileScorePercent !== undefined ? chalk.dim(` (${v.fileScorePercent}%)`) : '';
+        console.log(chalk.red(`  ${v.file}${v.line ? `:${v.line}` : ''}${scoreSuffix}`));
         console.log(chalk.dim(`    ${v.message}`));
         console.log(chalk.dim(`    Expected: ${v.expected}`));
         console.log(chalk.dim(`    Found:    ${v.found}`));
@@ -90,6 +91,6 @@ export class ComplianceScorer {
     }
 
     const passIcon = score.total >= (score.threshold ?? 70) ? '\u2705' : '\u274c';
-    console.log(`${passIcon} Threshold: ${score.threshold ?? 70} | Score: ${score.total}\n`);
+    console.log(`${passIcon} Threshold: ${score.threshold ?? 70} | Score: ${score.total} | Issues: ${violations.length}\n`);
   }
 }

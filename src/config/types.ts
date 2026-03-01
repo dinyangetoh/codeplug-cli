@@ -170,6 +170,7 @@ export interface Violation {
   expected: string;
   found: string;
   autoFixable: boolean;
+  fileScorePercent?: number;
 }
 
 export interface ComplianceScore {

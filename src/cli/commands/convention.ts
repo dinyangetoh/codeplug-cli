@@ -94,6 +94,7 @@ export async function handleConventionAudit(
   options: ConventionAuditOptions,
 ): Promise<void> {
   const chalk = (await import("chalk")).default;
+  const ora = (await import("ora")).default;
   const { ConfigManager } = await import("../../config/ConfigManager.js");
   const { ConventionStore } = await import("../../storage/ConventionStore.js");
   const { ViolationDetector } =
@@ -116,14 +117,21 @@ export async function handleConventionAudit(
   const config = new ConfigManager(process.cwd());
   await config.load();
 
+  const oraSpinner = ora("Auditing conventions...").start();
   const detector = new ViolationDetector(process.cwd(), {
     analysisConfig: config.getAnalysisConfig(),
     structureConfig: config.getStructureConfig(),
     namingConfig: config.getNamingConfig(),
     modelTier: config.getModelTier(),
     conventionConfig: config.getConventionConfig(),
+    spinner: {
+      text: (msg) => { oraSpinner.text = msg; },
+      succeed: (msg) => oraSpinner.succeed(msg),
+    },
   });
+
   const violations = await detector.detect(conventions, options);
+  oraSpinner.succeed(`Audit complete (${violations.length} violation${violations.length === 1 ? "" : "s"})`);
 
   const scorer = new ComplianceScorer({
     scoringConfig: config.getScoringConfig(),

@@ -14,23 +14,36 @@ import { DEFAULT_ANALYSIS } from "../../config/defaults.js";
 import type { ParsedFile } from "../analyzer/AstAnalyzer.js";
 import type { AstVisitor, VisitorFinding } from "../analyzer/visitors/types.js";
 
+export interface SpinnerLike {
+  text: (msg: string) => void;
+  succeed?: (msg?: string) => void;
+}
+
 export class ViolationDetector {
   private analysisConfig: AnalysisConfig;
-
   private structureConfig?: StructureConfig;
   private namingConfig?: NamingConfig;
   private modelTier?: ModelTier;
   private conventionConfig?: ConventionConfig;
+  private spinner?: SpinnerLike;
 
   constructor(
     private projectRoot: string,
-    options?: { analysisConfig?: AnalysisConfig; structureConfig?: StructureConfig; namingConfig?: NamingConfig; modelTier?: ModelTier; conventionConfig?: ConventionConfig },
+    options?: {
+      analysisConfig?: AnalysisConfig;
+      structureConfig?: StructureConfig;
+      namingConfig?: NamingConfig;
+      modelTier?: ModelTier;
+      conventionConfig?: ConventionConfig;
+      spinner?: SpinnerLike;
+    },
   ) {
     this.analysisConfig = options?.analysisConfig ?? DEFAULT_ANALYSIS;
     this.structureConfig = options?.structureConfig;
     this.namingConfig = options?.namingConfig;
     this.modelTier = options?.modelTier;
     this.conventionConfig = options?.conventionConfig;
+    this.spinner = options?.spinner;
   }
 
   async detect(
@@ -38,8 +51,11 @@ export class ViolationDetector {
     options: ConventionAuditOptions,
   ): Promise<Violation[]> {
     const confirmed = conventions.filter((c) => c.confirmed);
+    this.spinner?.text("Finding files to audit...");
     const files = await this.getTargetFiles(options);
     if (files.length === 0) return [];
+
+    this.spinner?.text("Parsing files and checking conventions...");
 
     const customRuleStore = new (await import("../../storage/CustomRuleStore.js")).CustomRuleStore(this.projectRoot);
     const customRules = (await customRuleStore.exists()) ? await customRuleStore.load() : [];
@@ -127,6 +143,9 @@ export class ViolationDetector {
               autoFixable = expectedName !== null;
             }
 
+            const fileScorePercent =
+              finding.total > 0 ? Math.round((finding.count / finding.total) * 100) : undefined;
+
             violations.push({
               id: randomUUID(),
               conventionId: convention.id,
@@ -136,6 +155,7 @@ export class ViolationDetector {
               expected: expectedName ?? finding.pattern,
               found: foundName ?? (isNamingFile ? basename(filePath) : this.describeFinding(finding, filePath)),
               autoFixable,
+              fileScorePercent,
             });
           }
         } catch {
@@ -149,23 +169,27 @@ export class ViolationDetector {
     const semanticEnabled = semanticConvention || this.conventionConfig?.enableSemanticCoherence;
     if (runSemantic && semanticEnabled) {
       try {
-        const chalk = (await import('chalk')).default;
-        process.stdout.write(chalk.dim('  Running semantic coherence (HF)... '));
+        this.spinner?.text("Running semantic coherence (HF)...");
         const { detectSemanticViolations } = await import("../analyzer/SemanticCoherencePhase.js");
         const convList = semanticConvention ? confirmed : [...confirmed, { id: 'naming-export-semantically-fits-file-context', dimension: 'naming' as const, rule: 'Export semantically fits file context', confidence: 100, confirmed: true as const, examples: [] as string[], severity: 'medium' as const }];
+        const spinner = this.spinner;
+        const onProgress = spinner ? (msg: string) => spinner.text(msg) : undefined;
         const semanticViolations = await detectSemanticViolations(
           this.projectRoot,
           files,
           convList,
-          this.modelTier!,
-          { semanticFitThreshold: this.conventionConfig?.semanticFitThreshold },
+          this.modelTier as ModelTier,
+          {
+            semanticFitThreshold: this.conventionConfig?.semanticFitThreshold,
+            onProgress,
+          },
         );
         violations.push(...semanticViolations);
-        process.stdout.write(chalk.dim(`${semanticViolations.length} violation(s)\n`));
+        this.spinner?.text(`Semantic coherence: ${semanticViolations.length} violation(s)`);
       } catch (err) {
         const chalk = (await import('chalk')).default;
         const msg = err instanceof Error ? err.message : String(err);
-        process.stdout.write(chalk.yellow(`skipped (${msg})\n`));
+        this.spinner?.text(chalk.yellow(`Semantic coherence skipped (${msg})`));
       }
     }
 
