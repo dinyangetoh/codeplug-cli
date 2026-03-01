@@ -1,10 +1,8 @@
-const useSession = () => {
+export const useSession = () => {
   return {
     session: null,
-    setSession: (session: any) => {
-      session = session;
-    },
+    setSession: () => {},
   };
 };
 
-export default useSession;
+export default { useSession };

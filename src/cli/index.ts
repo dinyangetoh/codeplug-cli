@@ -16,7 +16,7 @@ program
       .description(
         "Detect and confirm coding conventions in the current project",
       )
-      .option("--force", "Re-run detection, overwrite existing conventions")
+      .option("-f, --force", "Re-run detection, overwrite existing conventions")
       .action(async (options) => {
         const { handleConventionInit } =
           await import("./commands/convention.js");

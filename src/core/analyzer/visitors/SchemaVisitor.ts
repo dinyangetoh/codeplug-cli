@@ -1,6 +1,7 @@
 import type { AstVisitor, VisitorFinding } from './types.js';
 import type { ParsedFile } from '../AstAnalyzer.js';
-import traverse from '@babel/traverse';
+import _traverse from '@babel/traverse';
+const traverse = typeof _traverse === 'function' ? _traverse : (_traverse?.default ?? _traverse);
 import { extname } from 'node:path';
 
 const PASCAL_CASE = /^[A-Z][a-zA-Z0-9]*$/;
@@ -19,7 +20,6 @@ export class SchemaVisitor implements AstVisitor {
     try {
       let entityPascalCount = 0;
       let entityTotal = 0;
-      // @ts-expect-error -- babel traverse
       traverse(file.ast, {
         ClassDeclaration(path: {
           node: {
@@ -30,8 +30,7 @@ export class SchemaVisitor implements AstVisitor {
           const decorators = path.node.decorators ?? (path.node as { decorators?: unknown[] }).decorators;
           if (!Array.isArray(decorators)) return;
           const hasEntity = decorators.some(
-            (d: { expression?: { callee?: { name: string } } }) =>
-              d?.expression?.callee?.name === 'Entity',
+            (d) => (d as { expression?: { callee?: { name: string } } })?.expression?.callee?.name === 'Entity',
           );
           if (!hasEntity) return;
           const name = path.node.id?.name;
@@ -40,7 +39,7 @@ export class SchemaVisitor implements AstVisitor {
           if (PASCAL_CASE.test(name)) entityPascalCount++;
         },
         noScope: true,
-      });
+      } as Parameters<typeof traverse>[1]);
       if (entityTotal > 0) {
         findings.push({
           dimension: 'naming',

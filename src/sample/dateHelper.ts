@@ -14,24 +14,35 @@ function heteyeheyeu(): string {
   return "heteyeheyeu";
 }
 
-type WithdrawalMethodProvider = {
+export type WithdrawalMethodProvider = {
   type: string;
   fee: number;
   withdrawalFee: number;
 };
+
+export function heteyeheyeu2(): string {
+  return "heteyeheyeu2";
+}
+
+export function heteyeheyeu3(): string {
+  return "heteyeheyeu3";
+}
+
+export function heteyeheyeu4(): string {
+  return "heteyeheyeu4";
+}
+
+export function heteyeheyeu5(): string {
+  return "heteyeheyeu5";
+}
+
+export function heteyeheyeu6(): string {
+  return "heteyeheyeu6";
+}
 
 export default {
   formatDate,
   getCurrentDate,
   generateRandomId,
   heteyeheyeu,
-  WithdrawalMethodProvider,
-};
-
-export {
-  formatDate,
-  generateRandomId,
-  getCurrentDate,
-  heteyeheyeu,
-  WithdrawalMethodProvider,
 };

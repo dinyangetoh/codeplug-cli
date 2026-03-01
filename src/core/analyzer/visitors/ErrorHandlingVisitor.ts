@@ -1,6 +1,7 @@
 import type { AstVisitor, VisitorFinding } from './types.js';
 import type { ParsedFile } from '../AstAnalyzer.js';
-import traverse from '@babel/traverse';
+import _traverse from '@babel/traverse';
+const traverse = typeof _traverse === 'function' ? _traverse : (_traverse?.default ?? _traverse);
 
 export class ErrorHandlingVisitor implements AstVisitor {
   visit(file: ParsedFile): VisitorFinding[] {
@@ -9,7 +10,6 @@ export class ErrorHandlingVisitor implements AstVisitor {
     let asyncFnCount = 0;
 
     try {
-      // @ts-expect-error -- @babel/traverse CJS default export not resolved under NodeNext
       traverse(file.ast, {
         TryStatement() {
           tryCatchCount++;
@@ -21,7 +21,7 @@ export class ErrorHandlingVisitor implements AstVisitor {
           if (path.node.async) asyncFnCount++;
         },
         noScope: true,
-      });
+      } as Parameters<typeof traverse>[1]);
     } catch {
       return findings;
     }

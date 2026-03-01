@@ -1,17 +1,23 @@
+import { DEFAULT_DRIFT } from '../../config/defaults.js';
+
 export interface GatedResult {
   classification: 'following' | 'ambiguous' | 'drifting';
   confidence: number;
   needsReview: boolean;
 }
 
-const CONFIDENCE_THRESHOLD = 0.7;
-
 export class ConfidenceGate {
+  private threshold: number;
+
+  constructor(threshold?: number) {
+    this.threshold = threshold ?? DEFAULT_DRIFT.confidenceThreshold ?? 0.7;
+  }
+
   gate(classification: string, confidence: number): GatedResult {
     return {
       classification: classification as GatedResult['classification'],
       confidence,
-      needsReview: confidence < CONFIDENCE_THRESHOLD,
+      needsReview: confidence < this.threshold,
     };
   }
 }

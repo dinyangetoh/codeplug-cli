@@ -6,4 +6,14 @@ function getCurrentDate(): Date {
   return new Date();
 }
 
-export { formatDate, getCurrentDate };
+const heteyeheyeu = () => {
+  return "heteyeheyeu";
+};
+
+export type PaymentGatewayProvider = {
+  type: string;
+  fee: number;
+  withdrawalFee: number;
+};
+
+export { formatDate, getCurrentDate, heteyeheyeu };

@@ -14,6 +14,7 @@ export {
   GEMINI_API_KEY,
   GROK_API_KEY,
   GROQ_API_KEY,
+  host,
   OPEN_API_KEY,
   OPENROUTER_API_KEY,
 };

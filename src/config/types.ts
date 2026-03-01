@@ -39,9 +39,70 @@ export interface ModelsConfig {
   tier: ModelTier;
 }
 
+export interface StructureRule {
+  dir: string;
+  filePattern: string;
+  patternName: string;
+}
+
+export interface StructureConfig {
+  architecture?: {
+    featureBased?: string[];
+    mvc?: string[];
+    layered?: string[];
+  };
+  directoryPlacement?: StructureRule[];
+}
+
+export interface AnalysisConfig {
+  include?: string[];
+  ignore?: string[];
+}
+
+export interface ScoringConfig {
+  weights?: Record<Severity, number>;
+  threshold?: number;
+  trendWindow?: number;
+}
+
+export interface ConventionConfig {
+  confidenceThreshold?: number;
+  minPatternConfidence?: number;
+  severityMap?: Partial<Record<Dimension, Severity>>;
+  enableSemanticCoherence?: boolean;
+  semanticFitThreshold?: number;
+}
+
+export interface DriftConfig {
+  confidenceThreshold?: number;
+  namingPatterns?: Record<string, string>;
+}
+
+export interface ExportTarget {
+  file: string;
+  dir: string;
+}
+
+export interface DocsConfig {
+  tracked?: string[];
+  exportTargets?: ExportTarget[];
+  devScripts?: string[];
+}
+
+export interface NamingConfig {
+  stemStopwords?: string[];
+}
+
 export interface CodePlugConfig {
   llm: LlmConfig;
   models: ModelsConfig;
+  structure?: StructureConfig;
+  analysis?: AnalysisConfig;
+  scoring?: ScoringConfig;
+  convention?: ConventionConfig;
+  drift?: DriftConfig;
+  docs?: DocsConfig;
+  naming?: NamingConfig;
 }
 
 export interface ConventionInitOptions {
@@ -80,6 +141,7 @@ export interface AnalysisResult {
   durationMs: number;
   patterns: DetectedPattern[];
   folderStructure: FolderNode;
+  filePaths?: string[];
 }
 
 export interface DetectedPattern {

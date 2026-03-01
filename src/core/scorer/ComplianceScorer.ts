@@ -1,27 +1,29 @@
-import type { Violation, ComplianceScore, Severity, ScoreRecord } from '../../config/types.js';
-
-const SEVERITY_WEIGHTS: Record<Severity, number> = {
-  critical: 15,
-  high: 8,
-  medium: 3,
-  low: 1,
-};
+import type { ComplianceScore, ScoringConfig, Severity, Violation, ScoreRecord } from '../../config/types.js';
+import { DEFAULT_SCORING } from '../../config/defaults.js';
 
 export class ComplianceScorer {
+  private scoringConfig: ScoringConfig;
+
+  constructor(options?: { scoringConfig?: ScoringConfig }) {
+    this.scoringConfig = options?.scoringConfig ?? DEFAULT_SCORING;
+  }
+
   calculate(violations: Violation[]): ComplianceScore {
+    const weights = this.scoringConfig.weights ?? DEFAULT_SCORING.weights ?? { critical: 15, high: 8, medium: 3, low: 1 } as Record<Severity, number>;
+    const threshold = this.scoringConfig.threshold ?? DEFAULT_SCORING.threshold ?? 70;
     const breakdown: Record<Severity, number> = { critical: 0, high: 0, medium: 0, low: 0 };
 
     let totalDeduction = 0;
     for (const v of violations) {
       breakdown[v.severity]++;
-      totalDeduction += SEVERITY_WEIGHTS[v.severity];
+      totalDeduction += weights[v.severity];
     }
 
     return {
       total: Math.max(0, 100 - totalDeduction),
       breakdown,
       violationCount: violations.length,
-      threshold: 70,
+      threshold,
     };
   }
 
@@ -46,7 +48,8 @@ export class ComplianceScorer {
 
       const { TrendTracker } = await import('./TrendTracker.js');
       const tracker = new TrendTracker();
-      const history = await store.getHistory(8);
+      const trendWindow = this.scoringConfig.trendWindow ?? DEFAULT_SCORING.trendWindow ?? 8;
+      const history = await store.getHistory(trendWindow);
       score.trend = tracker.computeTrend(history);
     } finally {
       store.close();

@@ -23,9 +23,16 @@ export async function handleDocsGenerate(options: DocsGenerateOptions): Promise<
 
 export async function handleDocsStatus(): Promise<void> {
   const chalk = (await import('chalk')).default;
+  const { ConfigManager } = await import('../../config/ConfigManager.js');
   const { StalenessTracker } = await import('../../core/generator/StalenessTracker.js');
 
-  const tracker = new StalenessTracker(process.cwd());
+  const config = new ConfigManager(process.cwd());
+  await config.load();
+
+  const tracker = new StalenessTracker(process.cwd(), {
+    analysisConfig: config.getAnalysisConfig(),
+    docsConfig: config.getDocsConfig(),
+  });
   const status = await tracker.check();
 
   console.log(chalk.bold('\n📄 Documentation Status\n'));

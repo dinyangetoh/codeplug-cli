@@ -1,6 +1,7 @@
 import type { AstVisitor, VisitorFinding } from './types.js';
 import type { ParsedFile } from '../AstAnalyzer.js';
-import traverse from '@babel/traverse';
+import _traverse from '@babel/traverse';
+const traverse = typeof _traverse === 'function' ? _traverse : (_traverse?.default ?? _traverse);
 import { extname } from 'node:path';
 
 export class ComponentVisitor implements AstVisitor {
@@ -14,7 +15,6 @@ export class ComponentVisitor implements AstVisitor {
     let hasHooks = false;
 
     try {
-      // @ts-expect-error -- @babel/traverse CJS default export not resolved under NodeNext
       traverse(file.ast, {
         FunctionDeclaration(path: { node: { body: { body: Array<{ type: string; argument?: { type: string } }> } } }) {
           if (returnsJSX(path.node.body)) hasFunctionalComponent = true;
@@ -47,7 +47,7 @@ export class ComponentVisitor implements AstVisitor {
           }
         },
         noScope: true,
-      });
+      } as Parameters<typeof traverse>[1]);
     } catch {
       return findings;
     }

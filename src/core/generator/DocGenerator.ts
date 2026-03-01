@@ -31,15 +31,31 @@ const DOC_GENERATORS: Record<string, DocumentGenerator> = {
 const ALL_DOC_NAMES = Object.keys(DOC_GENERATORS);
 
 export class DocGenerator {
-  private stalenessTracker: StalenessTracker;
+  private stalenessTracker: StalenessTracker | null = null;
+  private configManager: ConfigManager;
 
-  constructor(private projectRoot: string) {
-    this.stalenessTracker = new StalenessTracker(projectRoot);
+  constructor(
+    private projectRoot: string,
+    options?: { configManager?: ConfigManager },
+  ) {
+    this.configManager = options?.configManager ?? new ConfigManager(projectRoot);
+  }
+
+  private async ensureReady(): Promise<void> {
+    await this.configManager.load();
+    if (this.stalenessTracker === null) {
+      this.stalenessTracker = new StalenessTracker(this.projectRoot, {
+        analysisConfig: this.configManager.getAnalysisConfig(),
+        docsConfig: this.configManager.getDocsConfig(),
+      });
+    }
   }
 
   async generate(options: DocsGenerateOptions): Promise<DocGenerationResult> {
     const start = Date.now();
     const chalk = (await import('chalk')).default;
+
+    await this.ensureReady();
 
     const targetDocs = this.resolveTargetDocs(options.doc);
     const audience = options.audience ?? 'developers';
@@ -58,7 +74,9 @@ export class DocGenerator {
     const packageMetadata = await this.loadPackageMetadata();
 
     const written: string[] = [];
-    const sourceHash = await this.stalenessTracker.computeSourceHash();
+    const tracker = this.stalenessTracker;
+    if (!tracker) throw new Error('StalenessTracker not initialized');
+    const sourceHash = await tracker.computeSourceHash();
 
     for (const docName of targetDocs) {
       const generator = DOC_GENERATORS[docName];
@@ -75,13 +93,14 @@ export class DocGenerator {
         llmClient,
         existingDoc,
         packageMetadata,
+        docsConfig: this.configManager.getDocsConfig(),
       };
 
       try {
         const content = await generator.generate(ctx);
         const outPath = join(this.projectRoot, docName);
         await writeFile(outPath, content, 'utf-8');
-        await this.stalenessTracker.update(docName, sourceHash);
+        await tracker.update(docName, sourceHash);
         written.push(docName);
         console.log(chalk.green(`  ✓ ${docName}`));
       } catch (err) {
@@ -99,7 +118,12 @@ export class DocGenerator {
 
   async update(): Promise<DocUpdateResult> {
     const chalk = (await import('chalk')).default;
-    const statuses = await this.stalenessTracker.check();
+
+    await this.ensureReady();
+
+    const tracker = this.stalenessTracker;
+    if (!tracker) throw new Error('StalenessTracker not initialized');
+    const statuses = await tracker.check();
     const staleDocs = statuses.filter((s) => s.stale).map((s) => s.name);
 
     if (staleDocs.length === 0) {
@@ -137,7 +161,11 @@ export class DocGenerator {
 
   private async runAnalysis(): Promise<AnalysisResult> {
     const { AstAnalyzer } = await import('../analyzer/AstAnalyzer.js');
-    const analyzer = new AstAnalyzer(this.projectRoot);
+    const analyzer = new AstAnalyzer(this.projectRoot, {
+      analysisConfig: this.configManager.getAnalysisConfig(),
+      structureConfig: this.configManager.getStructureConfig(),
+      namingConfig: this.configManager.getNamingConfig(),
+    });
     return analyzer.analyze();
   }
 

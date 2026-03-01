@@ -1,6 +1,7 @@
-import type { Convention, Dimension } from '../../config/types.js';
+import type { Convention, Dimension, DriftConfig } from '../../config/types.js';
 import type { CommitDiff } from '../git/GitIntegration.js';
 import type ChalkType from 'chalk';
+import { DEFAULT_DRIFT } from '../../config/defaults.js';
 import { ConfidenceGate } from './ConfidenceGate.js';
 
 type Chalk = typeof ChalkType;
@@ -23,13 +24,17 @@ interface HunkContext {
 
 type RuleMatcher = (hunk: HunkContext, convention: Convention) => DriftResult | null;
 
-const NAMING_PATTERNS: Record<string, RegExp> = {
-  camelCase: /^[a-z][a-zA-Z0-9]*$/,
-  PascalCase: /^[A-Z][a-zA-Z0-9]*$/,
-  SCREAMING_SNAKE_CASE: /^[A-Z][A-Z0-9_]*$/,
-  'kebab-case': /^[a-z][a-z0-9-]*$/,
-  snake_case: /^[a-z][a-z0-9_]*$/,
-};
+function buildNamingPatterns(config: Record<string, string>): Record<string, RegExp> {
+  const out: Record<string, RegExp> = {};
+  for (const [k, v] of Object.entries(config)) {
+    try {
+      out[k] = new RegExp(v);
+    } catch {
+      // skip invalid regex
+    }
+  }
+  return out;
+}
 
 function extractIdentifiers(line: string): string[] {
   const cleaned = line
@@ -50,12 +55,16 @@ function extractIdentifiers(line: string): string[] {
   return identifiers;
 }
 
-function matchNaming(hunk: HunkContext, convention: Convention): DriftResult | null {
+function matchNaming(
+  hunk: HunkContext,
+  convention: Convention,
+  namingPatterns: Record<string, RegExp>,
+): DriftResult | null {
   const ruleText = convention.rule.toLowerCase();
   let expectedPattern: RegExp | null = null;
   let patternName = '';
 
-  for (const [name, regex] of Object.entries(NAMING_PATTERNS)) {
+  for (const [name, regex] of Object.entries(namingPatterns)) {
     if (ruleText.includes(name.toLowerCase())) {
       expectedPattern = regex;
       patternName = name;
@@ -222,7 +231,6 @@ function matchErrorHandling(hunk: HunkContext, convention: Convention): DriftRes
 }
 
 const DIMENSION_MATCHERS: Partial<Record<Dimension, RuleMatcher>> = {
-  naming: matchNaming,
   structure: matchStructure,
   imports: matchImports,
   'error-handling': matchErrorHandling,
@@ -257,7 +265,14 @@ function parseHunks(rawDiff: string): HunkContext[] {
 }
 
 export class DriftClassifier {
-  private gate = new ConfidenceGate();
+  private gate: ConfidenceGate;
+  private namingPatterns: Record<string, RegExp>;
+
+  constructor(options?: { driftConfig?: DriftConfig }) {
+    const config = options?.driftConfig ?? DEFAULT_DRIFT;
+    this.gate = new ConfidenceGate(config.confidenceThreshold);
+    this.namingPatterns = buildNamingPatterns(config.namingPatterns ?? DEFAULT_DRIFT.namingPatterns ?? {});
+  }
 
   async classifyDiff(diff: string, conventions: Convention[]): Promise<DriftResult[]> {
     const hunks = parseHunks(diff);
@@ -267,10 +282,14 @@ export class DriftClassifier {
       for (const convention of conventions) {
         if (!convention.confirmed) continue;
 
-        const matcher = DIMENSION_MATCHERS[convention.dimension];
-        if (!matcher) continue;
-
-        const result = matcher(hunk, convention);
+        let result: DriftResult | null = null;
+        if (convention.dimension === 'naming') {
+          result = matchNaming(hunk, convention, this.namingPatterns);
+        } else {
+          const matcher = DIMENSION_MATCHERS[convention.dimension];
+          if (matcher) result = matcher(hunk, convention);
+        }
+        if (!result) continue;
         if (result) {
           const gated = this.gate.gate(result.classification, result.confidence);
           results.push({

@@ -1,6 +1,9 @@
 import type { AstVisitor, VisitorFinding, ExportedKind } from './types.js';
 import type { ParsedFile } from '../AstAnalyzer.js';
-import traverse from '@babel/traverse';
+import type { NamingConfig } from '../../../config/types.js';
+import { DEFAULT_NAMING } from '../../../config/defaults.js';
+import _traverse from '@babel/traverse';
+const traverse = typeof _traverse === 'function' ? _traverse : (_traverse?.default ?? _traverse);
 import { basename, extname } from 'node:path';
 
 const PASCAL_CASE = /^[A-Z][a-zA-Z0-9]*$/;
@@ -13,6 +16,13 @@ function isKebabCase(fileName: string): boolean {
 }
 
 export class NamingVisitor implements AstVisitor {
+  private stemStopwords: Set<string>;
+
+  constructor(options?: { namingConfig?: NamingConfig }) {
+    const stopwords = options?.namingConfig?.stemStopwords ?? DEFAULT_NAMING.stemStopwords ?? [];
+    this.stemStopwords = new Set(stopwords.map((w) => w.toLowerCase()));
+  }
+
   visit(file: ParsedFile): VisitorFinding[] {
     const findings: VisitorFinding[] = [];
     const fileName = basename(file.filePath, extname(file.filePath));
@@ -110,7 +120,7 @@ export class NamingVisitor implements AstVisitor {
       .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
       .split(/[-_.\s]+/)
       .map((w) => w.toLowerCase())
-      .filter((w) => w.length >= 2 && !/^(helper|util|service|type|hook|api)$/.test(w));
+      .filter((w) => w.length >= 2 && !this.stemStopwords.has(w));
   }
 
   private visitFileResponsibility(file: ParsedFile, fileName: string, findings: VisitorFinding[]): void {
@@ -136,7 +146,6 @@ export class NamingVisitor implements AstVisitor {
   private getPrimaryExport(file: ParsedFile): { name: string; kind: ExportedKind } | null {
     let result: { name: string; kind: ExportedKind } | null = null;
     try {
-      // @ts-expect-error -- babel traverse CJS default export not resolved under NodeNext
       traverse(file.ast, {
         ExportDefaultDeclaration(path: { node: { declaration: { type: string; id?: { name: string }; name?: string } } }) {
           if (result) return;
@@ -156,6 +165,10 @@ export class NamingVisitor implements AstVisitor {
             const d = node.declaration;
             if (d.type === 'ClassDeclaration' && d.id) {
               result = { name: d.id.name, kind: 'class' };
+            } else if (d.type === 'TSTypeAliasDeclaration' && d.id) {
+              result = { name: d.id.name, kind: 'instance' };
+            } else if (d.type === 'TSInterfaceDeclaration' && d.id) {
+              result = { name: d.id.name, kind: 'instance' };
             } else if (d.type === 'VariableDeclaration' && d.declarations?.[0]?.id) {
               const id = d.declarations[0].id;
               const name = id.type === 'Identifier' ? id.name : undefined;
@@ -168,7 +181,7 @@ export class NamingVisitor implements AstVisitor {
           }
         },
         noScope: true,
-      });
+      } as Parameters<typeof traverse>[1]);
     } catch {
       // ignore
     }
@@ -181,7 +194,6 @@ export class NamingVisitor implements AstVisitor {
       let total = 0;
       const violationRef: { found?: string; expected?: string } = {};
 
-      // @ts-expect-error -- babel traverse
       traverse(file.ast, {
         ClassDeclaration(path: { node: { id: { name: string } } }) {
           const name = path.node.id?.name;
@@ -199,7 +211,7 @@ export class NamingVisitor implements AstVisitor {
           }
         },
         noScope: true,
-      });
+      } as Parameters<typeof traverse>[1]);
 
       if (total > 0) {
         findings.push({
@@ -221,7 +233,6 @@ export class NamingVisitor implements AstVisitor {
     try {
       let pascalCount = 0;
       let total = 0;
-      // @ts-expect-error -- babel traverse
       traverse(file.ast, {
         TSInterfaceDeclaration(path: { node: { id: { name: string } } }) {
           const name = path.node.id?.name;
@@ -230,7 +241,7 @@ export class NamingVisitor implements AstVisitor {
           if (PASCAL_CASE.test(name)) pascalCount++;
         },
         noScope: true,
-      });
+      } as Parameters<typeof traverse>[1]);
       if (total > 0) {
         findings.push({
           dimension: 'naming',
@@ -249,7 +260,6 @@ export class NamingVisitor implements AstVisitor {
     try {
       let pascalCount = 0;
       let total = 0;
-      // @ts-expect-error -- babel traverse
       traverse(file.ast, {
         TSTypeAliasDeclaration(path: { node: { id: { name: string } } }) {
           const name = path.node.id?.name;
@@ -258,7 +268,7 @@ export class NamingVisitor implements AstVisitor {
           if (PASCAL_CASE.test(name)) pascalCount++;
         },
         noScope: true,
-      });
+      } as Parameters<typeof traverse>[1]);
       if (total > 0) {
         findings.push({
           dimension: 'naming',
@@ -279,7 +289,6 @@ export class NamingVisitor implements AstVisitor {
       let nameTotal = 0;
       let memberCorrectCount = 0;
       let memberTotal = 0;
-      // @ts-expect-error -- babel traverse
       traverse(file.ast, {
         TSEnumDeclaration(path: { node: { id: { name: string }; body?: { members: Array<{ id: { type: string; name?: string } }> }; members?: Array<{ id: { type: string; name?: string } }> } }) {
           const node = path.node;
@@ -299,7 +308,7 @@ export class NamingVisitor implements AstVisitor {
           }
         },
         noScope: true,
-      });
+      } as Parameters<typeof traverse>[1]);
       if (nameTotal > 0) {
         findings.push({
           dimension: 'naming',
@@ -327,7 +336,6 @@ export class NamingVisitor implements AstVisitor {
     try {
       let camelCount = 0;
       let total = 0;
-      // @ts-expect-error -- babel traverse
       traverse(file.ast, {
         Identifier(path: { node: { name: string }; parentPath: { parentKey: string; node: { type: string } } }) {
           const parentKey = path.parentPath?.parentKey;
@@ -340,7 +348,7 @@ export class NamingVisitor implements AstVisitor {
           if (CAMEL_CASE.test(name)) camelCount++;
         },
         noScope: true,
-      });
+      } as Parameters<typeof traverse>[1]);
       if (total > 0) {
         findings.push({
           dimension: 'naming',
@@ -360,7 +368,6 @@ export class NamingVisitor implements AstVisitor {
       const FACTORY_PREFIX = /^(create|build|make)[A-Z]/;
       let camelCount = 0;
       let total = 0;
-      // @ts-expect-error -- babel traverse
       traverse(file.ast, {
         FunctionDeclaration(path: { node: { id: { name: string } | null } }) {
           const id = path.node.id;
@@ -369,7 +376,7 @@ export class NamingVisitor implements AstVisitor {
           if (CAMEL_CASE.test(id.name)) camelCount++;
         },
         noScope: true,
-      });
+      } as Parameters<typeof traverse>[1]);
       if (total > 0) {
         findings.push({
           dimension: 'naming',
@@ -388,7 +395,6 @@ export class NamingVisitor implements AstVisitor {
     try {
       let validCount = 0;
       let total = 0;
-      // @ts-expect-error -- babel traverse
       traverse(file.ast, {
         ObjectProperty(path: { node: { key: { type: string; name?: string; value?: string } }; parent: { type: string } }) {
           if (path.parent?.type !== 'ObjectExpression') return;
@@ -403,7 +409,7 @@ export class NamingVisitor implements AstVisitor {
           if (CAMEL_CASE.test(name) || SCREAMING_SNAKE.test(name)) validCount++;
         },
         noScope: true,
-      });
+      } as Parameters<typeof traverse>[1]);
       if (total > 0) {
         findings.push({
           dimension: 'naming',
@@ -423,7 +429,6 @@ export class NamingVisitor implements AstVisitor {
       let screamingCount = 0;
       let constCount = 0;
 
-      // @ts-expect-error -- babel traverse
       traverse(file.ast, {
         VariableDeclarator(path: { node: { id: { type: string; name: string }; init: { type: string } | null } }) {
           const { node } = path;
@@ -441,7 +446,7 @@ export class NamingVisitor implements AstVisitor {
           }
         },
         noScope: true,
-      });
+      } as Parameters<typeof traverse>[1]);
 
       if (constCount > 0) {
         findings.push({

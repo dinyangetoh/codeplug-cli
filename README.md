@@ -219,6 +219,38 @@ codeplug config set models.tier lite
 
 Switching to `lite` prints a warning about potential quality degradation.
 
+### Configurable Sections
+
+CodePlug supports optional sections in `.codeplug/config.json`. Each section merges with built-in defaults (shallow merge). Omit a section to keep defaults.
+
+```mermaid
+flowchart TB
+  subgraph sources [Config Sources]
+    Defaults[DEFAULT_CONFIG]
+    User[config.json]
+  end
+  Defaults --> Merge[ConfigManager.load]
+  User --> Merge
+  Merge --> Config[CodePlugConfig]
+  Config --> Structure[structure]
+  Config --> Analysis[analysis]
+  Config --> Scoring[scoring]
+  Config --> Convention[convention]
+  Config --> Drift[drift]
+  Config --> Docs[docs]
+  Config --> Naming[naming]
+```
+
+| Section | Purpose |
+|---------|---------|
+| `structure` | Architecture patterns (feature-based, MVC, layered) and directory placement rules (e.g. *Helper in helpers/) |
+| `analysis` | Glob `include` and `ignore` for file discovery |
+| `scoring` | Severity weights, compliance threshold, trend window |
+| `convention` | Confidence threshold and dimension → severity map |
+| `drift` | Confidence threshold and naming pattern regexes |
+| `docs` | Tracked doc names, export targets, dev scripts |
+| `naming` | Stem stopwords for file-responsibility extraction |
+
 ---
 
 ## Supported LLM Providers

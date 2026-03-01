@@ -1,5 +1,7 @@
 import type { ParsedFile } from './AstAnalyzer.js';
-import type { DetectedPattern, Dimension, FolderNode } from '../../config/types.js';
+import type { AstVisitor } from './visitors/types.js';
+import type { ConventionConfig, DetectedPattern, Dimension, FolderNode, NamingConfig, StructureConfig } from '../../config/types.js';
+import { DEFAULT_CONVENTION, DEFAULT_STRUCTURE } from '../../config/defaults.js';
 import { NamingVisitor } from './visitors/NamingVisitor.js';
 import { ComponentVisitor } from './visitors/ComponentVisitor.js';
 import { TestVisitor } from './visitors/TestVisitor.js';
@@ -17,14 +19,22 @@ interface PatternAccumulator {
 
 export class PatternAggregator {
   private accumulators = new Map<string, PatternAccumulator>();
-  private visitors = [
-    new NamingVisitor(),
-    new ComponentVisitor(),
-    new TestVisitor(),
-    new ErrorHandlingVisitor(),
-    new ImportVisitor(),
-    new SchemaVisitor(),
-  ];
+  private structureConfig?: StructureConfig;
+  private minPatternConfidence: number;
+  private visitors: AstVisitor[];
+
+  constructor(options?: { structureConfig?: StructureConfig; namingConfig?: NamingConfig; conventionConfig?: ConventionConfig }) {
+    this.structureConfig = options?.structureConfig;
+    this.minPatternConfidence = options?.conventionConfig?.minPatternConfidence ?? DEFAULT_CONVENTION.minPatternConfidence ?? 50;
+    this.visitors = [
+      new NamingVisitor({ namingConfig: options?.namingConfig }),
+      new ComponentVisitor(),
+      new TestVisitor(),
+      new ErrorHandlingVisitor(),
+      new ImportVisitor(),
+      new SchemaVisitor(),
+    ];
+  }
 
   ingest(files: ParsedFile[]): void {
     for (const file of files) {
@@ -61,13 +71,18 @@ export class PatternAggregator {
       this.ingestDirectoryPlacement(filePaths, allDirs);
     }
 
-    const featureLike = ['features', 'modules', 'domains', 'pages'];
-    const mvcLike = ['models', 'views', 'controllers'];
-    const layeredLike = ['controllers', 'services', 'repositories', 'entities'];
+    const arch = this.structureConfig?.architecture ?? DEFAULT_STRUCTURE.architecture;
+    const featureLike = arch?.featureBased ?? DEFAULT_STRUCTURE.architecture?.featureBased ?? [];
+    const mvcLike = arch?.mvc ?? DEFAULT_STRUCTURE.architecture?.mvc ?? [];
+    const layeredLike = arch?.layered ?? DEFAULT_STRUCTURE.architecture?.layered ?? [];
 
-    const isFeatureBased = featureLike.some((d) => topDirs.includes(d));
-    const isMvc = mvcLike.filter((d) => topDirs.includes(d)).length >= 2;
-    const isLayered = layeredLike.filter((d) => topDirs.includes(d)).length >= 2;
+    const featureFiltered = featureLike.filter((d) => topDirs.includes(d));
+    const mvcFiltered = mvcLike.filter((d) => topDirs.includes(d));
+    const layeredFiltered = layeredLike.filter((d) => topDirs.includes(d));
+
+    const isFeatureBased = featureFiltered.length > 0;
+    const isMvc = mvcFiltered.length >= 2;
+    const isLayered = layeredFiltered.length >= 2;
 
     if (isFeatureBased) {
       this.addStructurePattern('Feature-based folder structure', topDirs);
@@ -89,7 +104,7 @@ export class PatternAggregator {
     for (const acc of this.accumulators.values()) {
       if (acc.total === 0) continue;
       const confidence = Math.round((acc.count / acc.total) * 100);
-      if (confidence < 50) continue;
+      if (confidence < this.minPatternConfidence) continue;
 
       results.push({
         dimension: acc.dimension,
@@ -118,15 +133,17 @@ export class PatternAggregator {
   }
 
   private ingestDirectoryPlacement(filePaths: string[], allDirs: Set<string>): void {
+    const configRules = this.structureConfig?.directoryPlacement ?? DEFAULT_STRUCTURE.directoryPlacement ?? [];
     const rules: Array<{ pattern: RegExp; dir: string; patternName: string }> = [];
-    if ([...allDirs].some((d) => d.endsWith('helpers') || d === 'helpers')) {
-      rules.push({ pattern: /[Hh]elper/, dir: 'helpers', patternName: '*Helper files in helpers/' });
-    }
-    if ([...allDirs].some((d) => d.endsWith('hooks') || d === 'hooks')) {
-      rules.push({ pattern: /^use[A-Z]/, dir: 'hooks', patternName: 'use* hooks in hooks/' });
-    }
-    if ([...allDirs].some((d) => d.endsWith('services') || d === 'services')) {
-      rules.push({ pattern: /Service$/, dir: 'services', patternName: '*Service files in services/' });
+
+    for (const r of configRules) {
+      const dirExists = [...allDirs].some((d) => d === r.dir || d.endsWith(`/${r.dir}`));
+      if (!dirExists) continue;
+      rules.push({
+        pattern: new RegExp(r.filePattern),
+        dir: r.dir,
+        patternName: r.patternName,
+      });
     }
 
     for (const { pattern, dir, patternName } of rules) {

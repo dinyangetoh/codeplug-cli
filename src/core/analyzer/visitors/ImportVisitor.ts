@@ -1,6 +1,7 @@
 import type { AstVisitor, VisitorFinding } from './types.js';
 import type { ParsedFile } from '../AstAnalyzer.js';
-import traverse from '@babel/traverse';
+import _traverse from '@babel/traverse';
+const traverse = typeof _traverse === 'function' ? _traverse : (_traverse?.default ?? _traverse);
 import { basename } from 'node:path';
 
 export class ImportVisitor implements AstVisitor {
@@ -12,7 +13,6 @@ export class ImportVisitor implements AstVisitor {
     let barrelImportCount = 0;
 
     try {
-      // @ts-expect-error -- @babel/traverse CJS default export not resolved under NodeNext
       traverse(file.ast, {
         ImportDeclaration(path: {
           node: {
@@ -37,7 +37,7 @@ export class ImportVisitor implements AstVisitor {
           }
         },
         noScope: true,
-      });
+      } as Parameters<typeof traverse>[1]);
     } catch {
       return findings;
     }

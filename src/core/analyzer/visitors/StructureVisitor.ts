@@ -1,5 +1,7 @@
 import type { AstVisitor, VisitorFinding } from './types.js';
 import type { ParsedFile } from '../AstAnalyzer.js';
+import type { StructureConfig } from '../../../config/types.js';
+import { DEFAULT_STRUCTURE } from '../../../config/defaults.js';
 
 interface DirRule {
   pattern: RegExp;
@@ -10,21 +12,25 @@ interface DirRule {
 export class StructureVisitor implements AstVisitor {
   private rules: DirRule[] = [];
 
-  constructor(filePaths: string[] = []) {
+  constructor(
+    filePaths: string[] = [],
+    structureConfig?: StructureConfig,
+  ) {
     const allDirs = new Set<string>();
     for (const p of filePaths) {
       for (const seg of p.split('/').slice(0, -1)) {
         allDirs.add(seg);
       }
     }
-    if ([...allDirs].some((d) => d === 'helpers')) {
-      this.rules.push({ pattern: /[Hh]elper/, dir: 'helpers', patternName: '*Helper files in helpers/' });
-    }
-    if ([...allDirs].some((d) => d === 'hooks')) {
-      this.rules.push({ pattern: /^use[A-Z]/, dir: 'hooks', patternName: 'use* hooks in hooks/' });
-    }
-    if ([...allDirs].some((d) => d === 'services')) {
-      this.rules.push({ pattern: /Service$/, dir: 'services', patternName: '*Service files in services/' });
+
+    const placement = structureConfig?.directoryPlacement ?? DEFAULT_STRUCTURE.directoryPlacement ?? [];
+    for (const r of placement) {
+      if (![...allDirs].some((d) => d === r.dir)) continue;
+      this.rules.push({
+        pattern: new RegExp(r.filePattern),
+        dir: r.dir,
+        patternName: r.patternName,
+      });
     }
   }
 

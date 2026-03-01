@@ -1,4 +1,4 @@
-import type { AnalysisResult, Convention } from '../../../config/types.js';
+import type { AnalysisResult, Convention, DocsConfig } from '../../../config/types.js';
 import type { LlmClient } from '../llm/LlmClient.js';
 
 export interface PackageMetadata {
@@ -20,6 +20,7 @@ export interface GenerationContext {
   llmClient?: LlmClient;
   existingDoc?: string;
   packageMetadata?: PackageMetadata;
+  docsConfig?: DocsConfig;
 }
 
 export type LlmRequiredContext = GenerationContext & { llmClient: LlmClient };

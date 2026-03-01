@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ConfigManager } from '../../../src/config/ConfigManager.js';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -64,5 +64,72 @@ describe('ConfigManager', () => {
     await config.load();
 
     expect(() => config.set('invalid', 'value')).toThrow('Invalid config key');
+  });
+
+  describe('config merge', () => {
+    it('should merge structure config with defaults', async () => {
+      const dir = join(tempDir, '.codeplug');
+      await mkdir(dir, { recursive: true });
+      await writeFile(
+        join(dir, 'config.json'),
+        JSON.stringify({
+          structure: {
+            architecture: { featureBased: ['features', 'custom'] },
+            directoryPlacement: [{ dir: 'utils', filePattern: '[Uu]til', patternName: '*Util files in utils/' }],
+          },
+        }),
+        'utf-8',
+      );
+      const config = new ConfigManager(tempDir);
+      await config.load();
+
+      const structure = config.getStructureConfig();
+      expect(structure.architecture?.featureBased).toEqual(['features', 'custom']);
+      expect(structure.architecture?.mvc).toEqual(['models', 'views', 'controllers']);
+      expect(structure.directoryPlacement).toEqual([{ dir: 'utils', filePattern: '[Uu]til', patternName: '*Util files in utils/' }]);
+    });
+
+    it('should merge analysis config with defaults', async () => {
+      const dir = join(tempDir, '.codeplug');
+      await mkdir(dir, { recursive: true });
+      await writeFile(
+        join(dir, 'config.json'),
+        JSON.stringify({ analysis: { ignore: ['**/custom-ignore/**'] } }),
+        'utf-8',
+      );
+      const config = new ConfigManager(tempDir);
+      await config.load();
+
+      const analysis = config.getAnalysisConfig();
+      expect(analysis.include).toEqual(['**/*.{ts,tsx,js,jsx,mjs,cjs}']);
+      expect(analysis.ignore).toContain('**/custom-ignore/**');
+    });
+
+    it('should merge scoring config with defaults', async () => {
+      const dir = join(tempDir, '.codeplug');
+      await mkdir(dir, { recursive: true });
+      await writeFile(
+        join(dir, 'config.json'),
+        JSON.stringify({ scoring: { threshold: 80, trendWindow: 12 } }),
+        'utf-8',
+      );
+      const config = new ConfigManager(tempDir);
+      await config.load();
+
+      const scoring = config.getScoringConfig();
+      expect(scoring.threshold).toBe(80);
+      expect(scoring.trendWindow).toBe(12);
+      expect(scoring.weights?.critical).toBe(15);
+    });
+
+    it('should fallback to defaults when sections absent', async () => {
+      const config = new ConfigManager(tempDir);
+      await config.load();
+
+      expect(config.getStructureConfig().architecture?.featureBased).toContain('features');
+      expect(config.getAnalysisConfig().include).toContain('**/*.{ts,tsx,js,jsx,mjs,cjs}');
+      expect(config.getScoringConfig().threshold).toBe(70);
+      expect(config.getNamingConfig().stemStopwords).toContain('helper');
+    });
   });
 });

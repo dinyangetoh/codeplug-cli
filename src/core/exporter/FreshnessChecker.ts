@@ -1,21 +1,19 @@
 import { stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { CODEPLUG_DIR, CONVENTIONS_FILE } from '../../config/defaults.js';
-
-const EXPORT_TARGETS = [
-  { file: 'CLAUDE.md', dir: '.' },
-  { file: 'conventions.mdc', dir: '.cursor/rules' },
-  { file: 'copilot-instructions.md', dir: '.github' },
-  { file: 'codeplug-export.json', dir: '.codeplug/exports' },
-  { file: 'ci-report.json', dir: CODEPLUG_DIR },
-];
+import type { DocsConfig } from '../../config/types.js';
+import { CODEPLUG_DIR, CONVENTIONS_FILE, DEFAULT_DOCS } from '../../config/defaults.js';
 
 export class FreshnessChecker {
   private conventionsPath: string;
+  private exportTargets: DocsConfig['exportTargets'];
 
-  constructor(private projectRoot: string) {
+  constructor(
+    private projectRoot: string,
+    options?: { docsConfig?: DocsConfig },
+  ) {
     this.conventionsPath = join(projectRoot, CODEPLUG_DIR, CONVENTIONS_FILE);
+    this.exportTargets = options?.docsConfig?.exportTargets ?? DEFAULT_DOCS.exportTargets ?? [];
   }
 
   async check(): Promise<boolean> {
@@ -28,7 +26,7 @@ export class FreshnessChecker {
 
     let anyExportExists = false;
 
-    for (const target of EXPORT_TARGETS) {
+    for (const target of this.exportTargets ?? []) {
       const exportPath = join(this.projectRoot, target.dir, target.file);
       if (!existsSync(exportPath)) continue;
 

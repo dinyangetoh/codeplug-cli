@@ -46,11 +46,11 @@ export class SemanticCoherenceService {
     return cosineSimilarity(a, b);
   }
 
-  async checkExportFitsContext(exportName: string, fileStem: string, fileSnippet?: string): Promise<boolean> {
+  async checkExportFitsContext(exportName: string, fileStem: string, fileSnippet?: string, threshold = 0.6): Promise<boolean> {
     try {
       const context = fileSnippet ? `${fileStem}: ${fileSnippet}` : fileStem;
       const score = await this.checkWithZeroShot(exportName, context);
-      return score >= 0.5;
+      return score >= threshold;
     } catch {
       return true;
     }

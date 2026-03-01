@@ -1,31 +1,49 @@
 import { join, extname } from 'node:path';
 import { readFile } from 'node:fs/promises';
-import type { AnalysisResult, FolderNode } from '../../config/types.js';
+import type { AnalysisConfig, AnalysisResult, ConventionConfig, FolderNode, NamingConfig, StructureConfig } from '../../config/types.js';
+import { DEFAULT_ANALYSIS } from '../../config/defaults.js';
 
 const SUPPORTED_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
 const BATCH_SIZE = 50;
 
 export class AstAnalyzer {
-  constructor(private projectRoot: string) {}
+  private analysisConfig: AnalysisConfig;
+  private structureConfig?: StructureConfig;
+  private namingConfig?: NamingConfig;
+  private conventionConfig?: ConventionConfig;
+
+  constructor(
+    private projectRoot: string,
+    options?: { analysisConfig?: AnalysisConfig; structureConfig?: StructureConfig; namingConfig?: NamingConfig; conventionConfig?: ConventionConfig },
+  ) {
+    this.analysisConfig = options?.analysisConfig ?? DEFAULT_ANALYSIS;
+    this.structureConfig = options?.structureConfig;
+    this.namingConfig = options?.namingConfig;
+    this.conventionConfig = options?.conventionConfig;
+  }
 
   async analyze(): Promise<AnalysisResult> {
     const start = Date.now();
     const { globby } = await import('globby');
 
-    const files = await globby(
-      ['**/*.{ts,tsx,js,jsx,mjs,cjs}'],
-      {
-        cwd: this.projectRoot,
-        gitignore: true,
-        ignore: ['**/node_modules/**', '**/dist/**', '**/build/**', '**/.codeplug/**'],
-        absolute: false,
-      },
-    );
+    const include = this.analysisConfig.include ?? DEFAULT_ANALYSIS.include;
+    const ignore = this.analysisConfig.ignore ?? DEFAULT_ANALYSIS.ignore;
+
+    const files = await globby(include ?? ['**/*.{ts,tsx,js,jsx,mjs,cjs}'], {
+      cwd: this.projectRoot,
+      gitignore: true,
+      ignore: ignore,
+      absolute: false,
+    });
 
     const sourceFiles = files.filter((f) => SUPPORTED_EXTENSIONS.has(extname(f)));
 
     const { PatternAggregator } = await import('./PatternAggregator.js');
-    const aggregator = new PatternAggregator();
+    const aggregator = new PatternAggregator({
+      structureConfig: this.structureConfig,
+      namingConfig: this.namingConfig,
+      conventionConfig: this.conventionConfig,
+    });
 
     for await (const batch of this.processBatches(sourceFiles)) {
       aggregator.ingest(batch);
@@ -39,6 +57,7 @@ export class AstAnalyzer {
       durationMs: Date.now() - start,
       patterns: aggregator.getPatterns(),
       folderStructure,
+      filePaths: sourceFiles,
     };
   }
 

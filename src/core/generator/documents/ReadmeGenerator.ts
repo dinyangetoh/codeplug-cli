@@ -1,5 +1,6 @@
 import { basename } from 'node:path';
 import type { FolderNode } from '../../../config/types.js';
+import { DEFAULT_DOCS } from '../../../config/defaults.js';
 import type { DocumentGenerator, GenerationContext, LlmRequiredContext } from './types.js';
 import {
   EXECUTIVE_SUMMARY_INSTRUCTION,
@@ -214,7 +215,8 @@ export class ReadmeGenerator implements DocumentGenerator {
     const scripts = ctx.packageMetadata?.scripts;
     if (!scripts || Object.keys(scripts).length === 0) return '';
 
-    const devScripts = ['build', 'test', 'lint', 'dev', 'typecheck', 'coverage'].filter((s) => scripts[s]);
+    const candidates = ctx.docsConfig?.devScripts ?? DEFAULT_DOCS.devScripts ?? [];
+    const devScripts = candidates.filter((s) => scripts[s]);
     if (devScripts.length === 0) return '';
 
     const lines = ['## Development\n', '```bash', ...devScripts.map((s) => `npm run ${s}`), '```', ''];

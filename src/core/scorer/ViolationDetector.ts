@@ -1,15 +1,37 @@
 import { readFile } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 import type {
+  AnalysisConfig,
   Convention,
   ConventionAuditOptions,
+  ConventionConfig,
+  ModelTier,
+  NamingConfig,
+  StructureConfig,
   Violation,
 } from "../../config/types.js";
+import { DEFAULT_ANALYSIS } from "../../config/defaults.js";
 import type { ParsedFile } from "../analyzer/AstAnalyzer.js";
 import type { AstVisitor, VisitorFinding } from "../analyzer/visitors/types.js";
 
 export class ViolationDetector {
-  constructor(private projectRoot: string) {}
+  private analysisConfig: AnalysisConfig;
+
+  private structureConfig?: StructureConfig;
+  private namingConfig?: NamingConfig;
+  private modelTier?: ModelTier;
+  private conventionConfig?: ConventionConfig;
+
+  constructor(
+    private projectRoot: string,
+    options?: { analysisConfig?: AnalysisConfig; structureConfig?: StructureConfig; namingConfig?: NamingConfig; modelTier?: ModelTier; conventionConfig?: ConventionConfig },
+  ) {
+    this.analysisConfig = options?.analysisConfig ?? DEFAULT_ANALYSIS;
+    this.structureConfig = options?.structureConfig;
+    this.namingConfig = options?.namingConfig;
+    this.modelTier = options?.modelTier;
+    this.conventionConfig = options?.conventionConfig;
+  }
 
   async detect(
     conventions: Convention[],
@@ -122,38 +144,52 @@ export class ViolationDetector {
       }
     }
 
+    const runSemantic = this.modelTier && files.length >= 3;
+    const semanticConvention = confirmed.find((c) => c.dimension === 'naming' && c.rule === 'Export semantically fits file context');
+    const semanticEnabled = semanticConvention || this.conventionConfig?.enableSemanticCoherence;
+    if (runSemantic && semanticEnabled) {
+      try {
+        const chalk = (await import('chalk')).default;
+        process.stdout.write(chalk.dim('  Running semantic coherence (HF)... '));
+        const { detectSemanticViolations } = await import("../analyzer/SemanticCoherencePhase.js");
+        const convList = semanticConvention ? confirmed : [...confirmed, { id: 'naming-export-semantically-fits-file-context', dimension: 'naming' as const, rule: 'Export semantically fits file context', confidence: 100, confirmed: true as const, examples: [] as string[], severity: 'medium' as const }];
+        const semanticViolations = await detectSemanticViolations(
+          this.projectRoot,
+          files,
+          convList,
+          this.modelTier!,
+          { semanticFitThreshold: this.conventionConfig?.semanticFitThreshold },
+        );
+        violations.push(...semanticViolations);
+        process.stdout.write(chalk.dim(`${semanticViolations.length} violation(s)\n`));
+      } catch (err) {
+        const chalk = (await import('chalk')).default;
+        const msg = err instanceof Error ? err.message : String(err);
+        process.stdout.write(chalk.yellow(`skipped (${msg})\n`));
+      }
+    }
+
     await this.persistViolations(violations);
     return violations;
   }
 
   private async persistViolations(violations: Violation[]): Promise<void> {
-    console.log("Persisting violations:", violations);
     const { ViolationStore } = await import("../../storage/ViolationStore.js");
     const store = new ViolationStore(this.projectRoot);
     await store.save(violations);
-
-    console.log("Violations persisted successfully", {
-      violationsCount: violations.length,
-    });
-
-    const storedViolations = await store.load();
-    console.log("Stored violations:", storedViolations);
   }
 
   private async getTargetFiles(
     options: ConventionAuditOptions,
   ): Promise<string[]> {
     const { globby } = await import("globby");
+    const include = this.analysisConfig.include ?? DEFAULT_ANALYSIS.include;
+    const ignore = this.analysisConfig.ignore ?? DEFAULT_ANALYSIS.ignore;
 
-    const allFiles = await globby(["**/*.{ts,tsx,js,jsx,mjs,cjs}"], {
+    const allFiles = await globby(include ?? ['**/*.{ts,tsx,js,jsx,mjs,cjs}'], {
       cwd: this.projectRoot,
       gitignore: true,
-      ignore: [
-        "**/node_modules/**",
-        "**/dist/**",
-        "**/build/**",
-        "**/.codeplug/**",
-      ],
+      ignore,
       absolute: false,
     });
 
@@ -239,13 +275,13 @@ export class ViolationDetector {
     ]);
 
     return [
-      new NamingVisitor(),
+      new NamingVisitor({ namingConfig: this.namingConfig }),
       new ComponentVisitor(),
       new TestVisitor(),
       new ErrorHandlingVisitor(),
       new ImportVisitor(),
       new SchemaVisitor(),
-      new StructureVisitor(filePaths),
+      new StructureVisitor(filePaths, this.structureConfig),
     ];
   }
 

@@ -11,6 +11,8 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/cli/index.js",
+    "convention:init": "node dist/cli/index.js convention init",
+    "convention:init:force": "node dist/cli/index.js convention init --force",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",

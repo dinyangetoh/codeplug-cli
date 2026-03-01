@@ -13,8 +13,13 @@ export async function handleExport(options: ExportOptions): Promise<void> {
   }
 
   if (options.check) {
+    const { ConfigManager } = await import('../../config/ConfigManager.js');
     const { FreshnessChecker } = await import('../../core/exporter/FreshnessChecker.js');
-    const checker = new FreshnessChecker(process.cwd());
+    const config = new ConfigManager(process.cwd());
+    await config.load();
+    const checker = new FreshnessChecker(process.cwd(), {
+      docsConfig: config.getDocsConfig(),
+    });
     const fresh = await checker.check();
     if (fresh) {
       console.log(chalk.green('✅ All exports are up to date.'));
