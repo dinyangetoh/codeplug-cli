@@ -49,6 +49,8 @@ export class ModelManager {
         summarizer: 'summarization',
         extractor: 'question-answering',
         ner: 'token-classification',
+        zeroShot: 'zero-shot-classification',
+        sentenceSimilarity: 'feature-extraction',
       };
 
       const pipe = await pipeline(taskMap[role] as never, spec.huggingFaceId, {

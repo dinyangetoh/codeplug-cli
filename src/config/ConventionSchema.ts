@@ -23,3 +23,16 @@ export const conventionsFileSchema = z.object({
   updated: z.string(),
   conventions: z.array(conventionSchema),
 });
+
+export const customRuleSchema = z.object({
+  id: z.string(),
+  pattern: z.string(),
+  scope: z.enum(['filename', 'path', 'content']),
+  message: z.string(),
+  severity: severitySchema.optional(),
+});
+
+export const customRulesFileSchema = z.object({
+  version: z.string().optional(),
+  rules: z.array(customRuleSchema),
+});

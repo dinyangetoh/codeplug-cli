@@ -1,6 +1,6 @@
 import type { ModelTier } from '../config/types.js';
 
-export type ModelRole = 'classifier' | 'summarizer' | 'extractor' | 'ner';
+export type ModelRole = 'classifier' | 'summarizer' | 'extractor' | 'ner' | 'zeroShot' | 'sentenceSimilarity';
 
 export interface ModelSpec {
   huggingFaceId: string;
@@ -64,6 +64,34 @@ const MODEL_REGISTRY: Record<ModelRole, Record<ModelTier, ModelSpec>> = {
       dtype: 'q8',
       sizeEstimateMb: 35,
       description: 'DistilBERT-NER for lightweight entity recognition',
+    },
+  },
+  zeroShot: {
+    default: {
+      huggingFaceId: 'Xenova/distilbert-base-uncased-mnli',
+      dtype: 'q8',
+      sizeEstimateMb: 68,
+      description: 'Zero-shot classification for semantic coherence',
+    },
+    lite: {
+      huggingFaceId: 'Xenova/distilbert-base-uncased-mnli',
+      dtype: 'q8',
+      sizeEstimateMb: 68,
+      description: 'Zero-shot classification for semantic coherence',
+    },
+  },
+  sentenceSimilarity: {
+    default: {
+      huggingFaceId: 'Xenova/all-MiniLM-L6-v2',
+      dtype: 'q8',
+      sizeEstimateMb: 23,
+      description: 'Sentence embeddings for symbol similarity',
+    },
+    lite: {
+      huggingFaceId: 'Xenova/all-MiniLM-L6-v2',
+      dtype: 'q8',
+      sizeEstimateMb: 23,
+      description: 'Sentence embeddings for symbol similarity',
     },
   },
 };

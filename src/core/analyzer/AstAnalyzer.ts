@@ -32,7 +32,7 @@ export class AstAnalyzer {
     }
 
     const folderStructure = this.buildFolderTree(sourceFiles);
-    aggregator.ingestStructure(folderStructure);
+    aggregator.ingestStructure(folderStructure, sourceFiles);
 
     return {
       fileCount: sourceFiles.length,

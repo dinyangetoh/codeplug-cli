@@ -243,13 +243,44 @@ All providers work through a single unified client via the OpenAI SDK.
 | | Default | Lite |
 |---|---------|------|
 | Target machine | 8GB+ RAM | 4GB+ RAM |
-| Disk usage | ~1.1GB | ~420MB |
+| Disk usage | ~1.2GB | ~450MB |
 | Classification | CodeBERT-base (125M params) | CodeBERTa-small (84M params) |
 | Summarization | BART-large-CNN (406M params) | DistilBART (230M params) |
 | NER | BERT-base-NER (110M params) | DistilBERT-NER (66M params) |
+| Zero-shot | DistilBERT-MNLI (68MB) | DistilBERT-MNLI (68MB) |
+| Sentence similarity | all-MiniLM-L6-v2 (23MB) | all-MiniLM-L6-v2 (23MB) |
 | When to use | Production quality, CI pipelines | Local development on constrained hardware |
 
 Models are downloaded on first use and cached in `~/.codeplug/models/`.
+
+### Hugging Face Transformers
+
+Convention detection, drift, and compliance use **on-device ML only** via `@huggingface/transformers`. No API keys or network calls for convention features.
+
+```mermaid
+flowchart LR
+    subgraph detection [Detection]
+        A[Rule-based]
+        B[HF Zero-shot]
+        C[HF Sentence Similarity]
+        D[HF Feature Extraction]
+        E[HF NER]
+    end
+    detection --> Init[convention init]
+    detection --> Audit[convention audit]
+```
+
+**Pipelines by feature:**
+
+| Feature | Pipeline | Use |
+|---------|----------|-----|
+| Convention discovery | Feature extraction (CodeBERT), token classification (NER) | Symbol semantics, entity extraction |
+| Doc generation | Summarization (BART), question-answering (DistilBERT) | Living documentation |
+| Semantic coherence | Zero-shot classification, sentence similarity (all-MiniLM) | "Does export X fit file context Y?" |
+
+**LLM scope:** The LLM is **optional** and used only for prose generation in docs. Convention detection, drift, and compliance do not use an LLM.
+
+**Cost:** Zero runtime cost for convention features; models are cached locally.
 
 ---
 
@@ -286,7 +317,7 @@ src/
 | `core/exporter/` | Multi-format export for AI coding agents |
 | `core/git/` | Git integration for diff analysis and hooks |
 | `models/` | ML model lifecycle management |
-| `storage/` | SQLite-based persistence for conventions and scores |
+| `storage/` | File-based persistence (conventions.json, scores.json, violations.json) |
 
 ---
 

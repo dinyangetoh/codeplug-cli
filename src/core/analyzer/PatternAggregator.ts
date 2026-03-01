@@ -5,6 +5,7 @@ import { ComponentVisitor } from './visitors/ComponentVisitor.js';
 import { TestVisitor } from './visitors/TestVisitor.js';
 import { ErrorHandlingVisitor } from './visitors/ErrorHandlingVisitor.js';
 import { ImportVisitor } from './visitors/ImportVisitor.js';
+import { SchemaVisitor } from './visitors/SchemaVisitor.js';
 
 interface PatternAccumulator {
   dimension: Dimension;
@@ -22,6 +23,7 @@ export class PatternAggregator {
     new TestVisitor(),
     new ErrorHandlingVisitor(),
     new ImportVisitor(),
+    new SchemaVisitor(),
   ];
 
   ingest(files: ParsedFile[]): void {
@@ -51,8 +53,13 @@ export class PatternAggregator {
     }
   }
 
-  ingestStructure(tree: FolderNode): void {
+  ingestStructure(tree: FolderNode, filePaths?: string[]): void {
     const topDirs = tree.children.map((c) => c.name);
+    const allDirs = this.collectAllDirs(tree);
+
+    if (filePaths && filePaths.length > 0) {
+      this.ingestDirectoryPlacement(filePaths, allDirs);
+    }
 
     const featureLike = ['features', 'modules', 'domains', 'pages'];
     const mvcLike = ['models', 'views', 'controllers'];
@@ -95,6 +102,62 @@ export class PatternAggregator {
     }
 
     return results.sort((a, b) => b.confidence - a.confidence);
+  }
+
+  private collectAllDirs(node: FolderNode, prefix = ''): Set<string> {
+    const dirs = new Set<string>();
+    for (const c of node.children) {
+      const path = prefix ? `${prefix}/${c.name}` : c.name;
+      dirs.add(c.name);
+      dirs.add(path);
+      for (const sub of this.collectAllDirs(c, path)) {
+        dirs.add(sub);
+      }
+    }
+    return dirs;
+  }
+
+  private ingestDirectoryPlacement(filePaths: string[], allDirs: Set<string>): void {
+    const rules: Array<{ pattern: RegExp; dir: string; patternName: string }> = [];
+    if ([...allDirs].some((d) => d.endsWith('helpers') || d === 'helpers')) {
+      rules.push({ pattern: /[Hh]elper/, dir: 'helpers', patternName: '*Helper files in helpers/' });
+    }
+    if ([...allDirs].some((d) => d.endsWith('hooks') || d === 'hooks')) {
+      rules.push({ pattern: /^use[A-Z]/, dir: 'hooks', patternName: 'use* hooks in hooks/' });
+    }
+    if ([...allDirs].some((d) => d.endsWith('services') || d === 'services')) {
+      rules.push({ pattern: /Service$/, dir: 'services', patternName: '*Service files in services/' });
+    }
+
+    for (const { pattern, dir, patternName } of rules) {
+      let conforming = 0;
+      let total = 0;
+      const examples: string[] = [];
+
+      for (const filePath of filePaths) {
+        const base = filePath.split('/').pop() ?? '';
+        const stem = base.replace(/\.[^.]+$/, '');
+        const dirsInPath = filePath.split('/').slice(0, -1);
+
+        if (!pattern.test(stem)) continue;
+        total++;
+        if (dirsInPath.includes(dir)) {
+          conforming++;
+        }
+        if (examples.length < 5) examples.push(filePath);
+      }
+
+      if (total > 0) {
+        const key = `structure:${patternName}`;
+        this.accumulators.set(key, {
+          dimension: 'structure',
+          pattern: patternName,
+          count: conforming,
+          total,
+          examples,
+        });
+      }
+    }
   }
 
   private addStructurePattern(pattern: string, examples: string[]): void {

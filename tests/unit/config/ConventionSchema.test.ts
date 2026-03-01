@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { conventionsFileSchema, conventionSchema } from '../../../src/config/ConventionSchema.js';
+import {
+  conventionsFileSchema,
+  conventionSchema,
+  customRulesFileSchema,
+  customRuleSchema,
+} from '../../../src/config/ConventionSchema.js';
 
 describe('ConventionSchema', () => {
   it('should validate a valid convention', () => {
@@ -57,6 +62,33 @@ describe('ConventionSchema', () => {
           confidence: 91,
           confirmed: true,
           examples: ['formatDate.ts'],
+          severity: 'medium',
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('should validate a custom rule', () => {
+    const result = customRuleSchema.safeParse({
+      id: 'no-kebab',
+      pattern: '-',
+      scope: 'filename',
+      message: 'No kebab-case filenames',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('should validate a custom rules file', () => {
+    const result = customRulesFileSchema.safeParse({
+      rules: [
+        {
+          id: 'no-kebab',
+          pattern: '-',
+          scope: 'filename',
+          message: 'No kebab-case filenames',
           severity: 'medium',
         },
       ],

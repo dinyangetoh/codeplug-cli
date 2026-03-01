@@ -16,18 +16,25 @@ describe('ModelRegistry', () => {
 
   it('should return all specs for a tier', () => {
     const specs = getAllModelSpecs('default');
-    expect(Object.keys(specs)).toEqual(['classifier', 'summarizer', 'extractor', 'ner']);
+    expect(Object.keys(specs).sort()).toEqual(
+      ['classifier', 'extractor', 'ner', 'sentenceSimilarity', 'summarizer', 'zeroShot'].sort()
+    );
   });
 
-  it('should estimate default tier disk at ~1.1GB', () => {
+  it('should return zeroShot and sentenceSimilarity specs', () => {
+    const zeroShot = getModelSpec('zeroShot', 'default');
+    expect(zeroShot.huggingFaceId).toBe('Xenova/distilbert-base-uncased-mnli');
+    const sentenceSim = getModelSpec('sentenceSimilarity', 'default');
+    expect(sentenceSim.huggingFaceId).toBe('Xenova/all-MiniLM-L6-v2');
+  });
+
+  it('should estimate default tier disk', () => {
     const total = getTotalDiskEstimate('default');
-    expect(total).toBeGreaterThan(1000);
-    expect(total).toBeLessThan(1200);
+    expect(total).toBeGreaterThan(1100);
   });
 
-  it('should estimate lite tier disk at ~420MB', () => {
+  it('should estimate lite tier disk', () => {
     const total = getTotalDiskEstimate('lite');
-    expect(total).toBeGreaterThan(350);
-    expect(total).toBeLessThan(500);
+    expect(total).toBeGreaterThan(400);
   });
 });

@@ -49,7 +49,7 @@ export async function handleConventionAudit(options: ConventionAuditOptions): Pr
   const violations = await detector.detect(conventions, options);
 
   const scorer = new ComplianceScorer();
-  const score = scorer.calculate(violations);
+  const score = await scorer.scoreAndPersist(violations, process.cwd());
   scorer.printReport(score, violations);
 
   if (options.ci && score.total < (score.threshold ?? 70)) {

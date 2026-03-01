@@ -28,10 +28,12 @@ describe('PatternAggregator', () => {
 
     expect(patterns.length).toBeGreaterThan(0);
 
-    const pascalPattern = patterns.find((p) => p.pattern.includes('PascalCase'));
-    expect(pascalPattern).toBeDefined();
-    expect(pascalPattern!.confidence).toBe(100);
-    expect(pascalPattern!.frequency).toBe(2);
+    const componentPascalPattern = patterns.find(
+      (p) => p.pattern === 'React components use PascalCase file names',
+    );
+    expect(componentPascalPattern).toBeDefined();
+    expect(componentPascalPattern!.confidence).toBe(100);
+    expect(componentPascalPattern!.frequency).toBe(2);
   });
 
   it('should detect feature-based folder structure', () => {

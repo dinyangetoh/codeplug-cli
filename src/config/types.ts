@@ -159,3 +159,11 @@ export interface PipelineResult {
   extractions: string[];
   entities: NerEntityResult[];
 }
+
+export interface CustomRule {
+  id: string;
+  pattern: string;
+  scope: 'filename' | 'path' | 'content';
+  message: string;
+  severity?: Severity;
+}
