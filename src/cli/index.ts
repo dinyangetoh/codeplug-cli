@@ -6,7 +6,7 @@ const program = new Command();
 program
   .name("codeplug")
   .description("The source of truth for codebase understanding & governance")
-  .version("0.1.2");
+  .version("0.1.3");
 
 program
   .command("convention")

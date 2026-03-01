@@ -1,12 +1,14 @@
-# Onboarding — Codeplug
+# Onboarding — @dinyangetoh/codeplug-cli
 
-Welcome to the team! This guide will help you get up and running with Codeplug as quickly as possible. We've designed this document to be comprehensive without being overwhelming—skip ahead to any section that interests you.
+## Executive Summary
+
+This document serves as the definitive guide for new engineers joining the Codeplug CLI team. It covers everything from environment setup and project architecture to coding conventions, common workflows, and the contribution process. Our goal is to get you from clone to first commit within 30 minutes while providing enough context to make meaningful contributions from day one.
 
 ## What is Codeplug?
 
-Codeplug is a [brief description of what the project does—e.g., "a collaborative code editor plugin system" or "a CLI tool for managing monorepo configurations"]. It powers [specific use case or customer segment] and is built with [primary technologies].
+Codeplug is **the source of truth for codebase understanding & governance**. It provides teams with the tooling needed to analyze, document, and maintain control over their codebase's structure and quality. Whether you're onboarding new team members, enforcing architectural standards, or generating living documentation, Codeplug serves as the central platform for codebase governance.
 
-The codebase contains approximately 79 source files across the `src/` and `tests/` directories. While manageable in size, it follows enterprise-grade patterns for maintainability and testability.
+The project is a CLI tool built with Node.js, designed to integrate seamlessly into existing development workflows. The codebase contains approximately 80 source files across the `src/` and `tests/` directories—small enough to comprehend quickly, yet substantial enough to demonstrate enterprise-grade patterns for maintainability, testability, and extensibility.
 
 ---
 
@@ -27,7 +29,7 @@ Ensure you have the following installed before proceeding:
 
 ```bash
 git clone <repository-url>
-cd codeplug
+cd codeplug-cli
 npm install
 ```
 
@@ -51,9 +53,9 @@ Both commands should complete without errors. If you encounter issues, see the [
 Understanding the directory layout will help you navigate the codebase confidently.
 
 ```
-codeplug/
-├── src/                    # Primary source code (57 files)
-│   ├── components/         # React components (if applicable)
+codeplug-cli/
+├── src/                    # Primary source code (58 files)
+│   ├── components/         # Core CLI components
 │   ├── services/           # Business logic and integrations
 │   ├── utils/              # Helper functions and utilities
 │   └── index.ts            # Entry point
@@ -62,22 +64,23 @@ codeplug/
 │   └── unit/               # Unit tests
 ├── dist/                   # Compiled output (generated)
 ├── node_modules/           # Dependencies (generated)
-└── package.json            # Project configuration
+├── package.json            # Project configuration
+└── README.md               # Project documentation
 ```
 
 ### Key Directories
 
 | Directory | Purpose |
 |-----------|---------|
-| `src/` | All production source code. This is where you'll spend most of your time. |
-| `tests/` | Shared test utilities and fixtures. Unit tests may also live here alongside their corresponding source files. |
+| `src/` | All production source code. This is where you'll spend most of your time. Contains 58 files covering core CLI functionality, analysis services, and governance rules. |
+| `tests/` | Comprehensive test coverage with 19 files. Includes both unit tests for individual components and integration tests for end-to-end workflows. |
 | `dist/` | Compiled JavaScript ready for distribution. This directory is gitignored. |
 
 ---
 
 ## Coding Conventions
 
-We maintain consistent conventions across the codebase to reduce cognitive load and make collaboration smoother. These aren't arbitrary rules—they're patterns we've found that improve readability and reduce bugs.
+We maintain consistent conventions across the codebase to reduce cognitive load and make collaboration smoother. These aren't arbitrary rules—they're patterns we've found that improve readability and reduce bugs. We've identified eight core conventions that govern how this project is structured.
 
 ### Naming Conventions
 
@@ -127,18 +130,29 @@ describe('UserService', () => {
 
 ### Data Flow
 
-[Insert a brief description of how data flows through the application. For example: "User input → API layer → Service layer → Data persistence → Response".]
+Codeplug CLI follows a layered architecture designed for testability and extensibility:
+
+1. **CLI Entry Point** (`src/index.ts`) — Parses command-line arguments and dispatches to appropriate handlers
+2. **Command Handlers** — Validate input and orchestrate the analysis workflow
+3. **Analysis Services** — Execute the core governance rules, code analysis, and documentation generation
+4. **Output Formatters** — Present results in various formats (JSON, Markdown, HTML, etc.)
+
+Data flows unidirectionally from input → processing → output, making it easy to test each layer in isolation.
 
 ### Key Modules
 
-Describe the main modules and their responsibilities:
-
-- **[Module Name]** — [Brief description of what it does and why it exists]
-- **[Module Name]** — [Brief description]
+- **Analysis Engine** — The core module that scans codebase structure, identifies patterns, and generates insights. This is the heart of Codeplug's "source of truth" functionality.
+- **Governance Rules** — A extensible rule system that enforces coding standards, architectural constraints, and documentation requirements across the codebase.
+- **Documentation Generator** — Produces living documentation that stays in sync with code changes, supporting teams in maintaining accurate internal wikis.
+- **CLI Interface** — Human-friendly command-line interface with sensible defaults, configuration support, and informative output.
 
 ### Dependencies
 
-[Optional: List key dependencies and why we use them. For example: "We use Jest for testing because..."]
+The project relies on key dependencies chosen for specific reasons:
+
+- **TypeScript** — Type safety at build time, reducing runtime errors and improving IDE support
+- **Jest** — Comprehensive testing framework with excellent mocking capabilities
+- **ESLint + Prettier** — Enforces consistent code style and catches potential bugs before review
 
 ---
 
@@ -241,8 +255,4 @@ Now that you're set up, consider exploring:
 - [ ] Pick up a "good first issue" from our issue tracker
 - [ ] Review recent pull requests to understand our code review style
 - [ ] Read through the main source files in `src/` to understand the architecture
-- [ ] Meet with your onboarding buddy for a code walkthrough
-
-We're glad you're here. Don't hesitate to ask questions—everyone was new once, and we'd rather answer a question than debug a mistake.
-
-Happy coding! 🚀
+- [ ] Meet with your onboarding buddy

@@ -1,12 +1,22 @@
 # codeplug — Architecture
 
+## Executive Summary
+
+This document provides a comprehensive architectural overview of **codeplug**, a sophisticated code analysis and documentation generation tool. The system employs a pipeline-based architecture that processes source code repositories through analysis, classification, scoring, and generation phases to extract meaningful insights and produce multi-format documentation. This architecture is designed for extensibility, supporting custom visitors, formatters, and LLM integrations while maintaining clear separation between concerns across CLI, configuration, core engine, and export layers.
+
+---
+
 ## System Overview
 
 codeplug is a sophisticated code analysis and documentation generation tool that processes source code repositories to extract, classify, analyze, and generate documentation through multiple export formats. The system employs a pipeline-based architecture that chains together analysis, classification, scoring, and generation phases.
 
 The project comprises 79 source files distributed across 35 directories, with a clear separation between the core analysis engine, CLI interface, configuration management, and test infrastructure.
 
+---
+
 ## High-Level Architecture
+
+The system follows a layered architecture pattern, progressing from user input through configuration, core processing, and finally output generation.
 
 ```mermaid
 graph TB
@@ -77,6 +87,8 @@ graph TB
     TYP --> MOD
 ```
 
+---
+
 ## Directory Structure
 
 ```
@@ -105,7 +117,49 @@ graph TB
 │   └── fixtures/               # Test fixtures and samples
 ```
 
+---
+
+## Key Descriptions
+
+This section provides detailed descriptions of the core architectural components that comprise the codeplug system.
+
+### CLI Layer
+
+The CLI layer serves as the primary entry point for user interaction, exposing commands for analysis, generation, export, and scoring operations. This layer handles argument parsing, user feedback, and orchestrates the initial flow of data into the system.
+
+### Configuration Layer
+
+The configuration layer manages hierarchical configuration loading with precedence order: command-line arguments (highest), project configuration files, and global defaults (lowest). This ensures users can override settings at multiple levels while maintaining sensible defaults.
+
+### Core Engine — Analysis Phase
+
+The analysis phase leverages static code analysis to parse source files into Abstract Syntax Trees (AST) and traverse them using the Visitor pattern. The analyzer integrates with Git to extract repository metadata, while multiple specialized visitors extract different entity types from the AST.
+
+### Core Engine — Classification Phase
+
+The classification phase categorizes extracted code entities based on structural analysis. Entities are classified into categories such as functions, classes, interfaces, and modules, enabling downstream processing to handle each type appropriately.
+
+### Core Engine — Scoring Phase
+
+The scoring phase calculates quality metrics for classified entities, including complexity scores and other quantitative measures that inform documentation generation and provide insights into code quality.
+
+### Core Engine — Generation Phase
+
+The generation phase orchestrates documentation creation through a pipeline that combines analysis results with optional LLM integration to produce rich, contextual documentation. This phase supports multiple output formats through a pluggable formatter architecture.
+
+### Export Layer
+
+The export layer handles formatting and writing final output, supporting multiple formats including JSON, Markdown, and HTML. The formatter abstraction allows adding new export formats without modifying core logic.
+
+### Storage Layer
+
+The storage layer persists analysis results, enabling caching and incremental re-analysis. This separation allows the system to avoid redundant processing when only portions of a codebase have changed.
+
+---
+
 ## Component Relationships
+
+The following diagram illustrates how data flows between major components during typical operations.
 
 ```mermaid
 graph LR
@@ -160,7 +214,11 @@ graph LR
 | `storage` | Persist analysis results | `save(data)`, `load(): Data` |
 | `git` | Extract repository metadata | `getHistory()`, `getBlame()` |
 
+---
+
 ## Data Flow
+
+The following sequence diagram illustrates the complete data flow from user execution through to final output generation.
 
 ```mermaid
 sequenceDiagram
@@ -204,6 +262,8 @@ sequenceDiagram
 ```
 
 ### Data Transformation Pipeline
+
+The system processes data through five distinct stages, each building upon the output of the previous stage.
 
 ```mermaid
 graph LR
@@ -250,6 +310,8 @@ graph LR
     FMT --> OUT
 ```
 
+---
+
 ## Key Abstractions
 
 ### Analysis Pipeline
@@ -287,7 +349,11 @@ The generator supports multiple document types through a pluggable architecture:
 - **HTMLGenerator**: Produces interactive HTML output
 - **JSONGenerator**: Exports structured data for external tools
 
+---
+
 ## Design Decisions
+
+The following architectural decisions reflect deliberate trade-offs and principles that guide the system's evolution.
 
 | Decision | Rationale |
 |----------|-----------|
@@ -302,7 +368,11 @@ The generator supports multiple document types through a pluggable architecture:
 | **`.test.{ext}` naming** | Standard convention for test discovery by most test runners |
 | **Co-located `__tests__/`** | Supports snapshot testing and keeps tests near implementation |
 
+---
+
 ## Processing Flow Example
+
+The following flowchart demonstrates how a single source file progresses through the complete processing pipeline.
 
 ```mermaid
 flowchart TB
@@ -336,7 +406,11 @@ flowchart TB
     end
 ```
 
+---
+
 ## Testing Strategy
+
+The test infrastructure employs a comprehensive strategy with unit tests, integration tests, and fixture-based validation.
 
 ```mermaid
 graph TB
@@ -371,18 +445,25 @@ graph TB
 
 The test suite maintains comprehensive coverage across all core components, with integration tests using the sample React application fixture to validate end-to-end behavior.
 
+---
+
 ## Extension Points
 
-The architecture supports extension through:
+The architecture supports extension through well-defined interfaces at multiple levels:
 
 1. **Custom Visitors**: Add new analysis dimensions by implementing the Visitor interface
 2. **Additional Formatters**: Implement the Formatter interface to support new output formats
 3. **Pipeline Stages**: Extend the pipeline orchestrator to add custom processing stages
 4. **LLM Providers**: Implement the LLM interface to integrate alternative AI services
 
+---
+
 ## Configuration
 
 Configuration is loaded hierarchically with the following precedence:
-1. Command-line arguments (highest)
-2. Project configuration file
-3. Global defaults (lowest)
+
+1. **Command-line arguments** (highest priority) — Direct user overrides
+2. **Project configuration file** — Repository-specific settings
+3. **Global defaults** (lowest priority) — System-wide baseline configuration
+
+This hierarchical approach ensures that users can override settings at the appropriate scope while maintaining sensible defaults for unspecified options.

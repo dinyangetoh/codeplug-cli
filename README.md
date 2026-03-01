@@ -1,17 +1,66 @@
 # CodePlug
 
+## Executive Summary
+
+This document provides comprehensive technical documentation for CodePlug, a local-first CLI tool designed to detect, enforce, and document coding conventions across TypeScript/JavaScript codebases. The guide covers installation, configuration, usage commands, project architecture, and development workflows for teams seeking automated codebase governance with AI agent integration capabilities.
+
+---
+
+## Overview
+
 **The source of truth for codebase understanding and governance.**
 
 CodePlug is a local-first CLI tool that detects your codebase's coding conventions, enforces them with drift detection and compliance scoring, generates living documentation, and exports convention context for AI coding agents.
 
+The tool operates entirely on-device using ML models for pattern detection, ensuring your codebase data never leaves your machine unless you explicitly configure cloud LLM providers for enhanced documentation generation.
+
 ---
 
-## Features
+## Key Features
 
-- **Convention Detection** -- AST analysis with on-device ML identifies naming patterns, folder structure, component styles, test organization, error handling, and import conventions across your TypeScript/JavaScript codebase.
-- **Drift & Compliance** -- Classifies git diffs against stored conventions, scores compliance with severity-weighted metrics, tracks trends over time, and auto-fixes what it can.
-- **Living Documentation** -- Generates and maintains README, ARCHITECTURE, CONVENTIONS, CONTRIBUTING, and ONBOARDING docs using ML summarization and optional LLM enhancement.
-- **AI Agent Export** -- Exports your conventions as `CLAUDE.md`, `.cursor/rules`, `.github/copilot-instructions.md`, structured JSON, and SARIF-format CI reports.
+### Convention Detection
+
+AST analysis with on-device ML identifies naming patterns, folder structure, component styles, test organization, error handling, and import conventions across your TypeScript/JavaScript codebase.
+
+### Drift & Compliance
+
+Classifies git diffs against stored conventions, scores compliance with severity-weighted metrics, tracks trends over time, and auto-fixes what it can.
+
+### Living Documentation
+
+Generates and maintains README, ARCHITECTURE, CONVENTIONS, CONTRIBUTING, and ONBOARDING docs using ML summarization and optional LLM enhancement.
+
+### AI Agent Export
+
+Exports your conventions as `CLAUDE.md`, `.cursor/rules`, `.github/copilot-instructions.md`, structured JSON, and SARIF-format CI reports.
+
+---
+
+## Prerequisites
+
+- **Node.js 20+** (required) — CodePlug is built with TypeScript and requires Node.js 20 or higher for native fetch and modern ESM support.
+- **Git** (required for drift detection and history analysis) — CodePlug integrates with Git for diff analysis, commit history inspection, and pre-commit hook management.
+- **Ollama** (optional) — For LLM-enhanced documentation. Any OpenAI-compatible provider works as an alternative.
+
+---
+
+## Installation
+
+### Global Install
+
+```bash
+npm install -g @dinyangetoh/codeplug-cli
+```
+
+### Local Development
+
+```bash
+git clone <repo-url>
+cd codeplug
+npm install
+npm run build
+node dist/cli/index.js --help
+```
 
 ---
 
@@ -29,34 +78,6 @@ codeplug convention init
 
 # Check compliance
 codeplug convention audit
-```
-
----
-
-## Prerequisites
-
-- **Node.js 20+** (required)
-- **Git** (required for drift detection and history analysis)
-- **Ollama** (optional, for LLM-enhanced documentation -- any OpenAI-compatible provider works)
-
----
-
-## Installation
-
-### Global install
-
-```bash
-npm install -g @dinyangetoh/codeplug-cli
-```
-
-### Local development
-
-```bash
-git clone <repo-url>
-cd codeplug
-npm install
-npm run build
-node dist/cli/index.js --help
 ```
 
 ---
@@ -232,6 +253,68 @@ Models are downloaded on first use and cached in `~/.codeplug/models/`.
 
 ---
 
+## Project Structure
+
+```
+src/
+├── cli/
+│   └── commands/           # Command handlers (convention, docs, export, config)
+├── config/                 # ConfigManager, Zod schemas, types, provider presets
+├── core/
+│   ├── analyzer/           # AST analysis engine + 6 visitors + PatternAggregator
+│   ├── classifier/         # Drift classification + confidence gating
+│   ├── scorer/             # Compliance scoring, violation detection, auto-fix, trends
+│   ├── generator/          # Doc generation, ML pipelines, LLM client, staleness tracking
+│   ├── exporter/           # Export engine + 5 formatters (Claude, Cursor, Copilot, JSON, CI)
+│   └── git/                # Git integration + pre-commit hook management
+├── models/                 # ML model manager + tier-aware registry
+├── storage/                # ConventionStore, ScoreStore (sql.js), ViolationStore
+├── templates/              # Export templates (Claude, Cursor, Copilot)
+└── tests/                  # Unit tests, integration tests, fixture repos
+```
+
+### Directory Details
+
+| Directory | Purpose |
+|-----------|---------|
+| `cli/commands/` | Command handlers for the CLI interface |
+| `config/` | Configuration management with Zod validation |
+| `core/analyzer/` | AST-based code analysis with pattern aggregation |
+| `core/classifier/` | Drift detection and severity classification |
+| `core/scorer/` | Compliance scoring engine with trend analysis |
+| `core/generator/` | Documentation generation with ML/LLM enhancement |
+| `core/exporter/` | Multi-format export for AI coding agents |
+| `core/git/` | Git integration for diff analysis and hooks |
+| `models/` | ML model lifecycle management |
+| `storage/` | SQLite-based persistence for conventions and scores |
+
+---
+
+## Conventions
+
+CodePlug follows these conventions throughout the codebase:
+
+### Naming Conventions
+
+- **Utility files** — Use camelCase (e.g., `formatDate.ts`, `parseConfig.ts`)
+- **Class/service files** — Use PascalCase (e.g., `ConfigManager.ts`, `ConventionStore.ts`)
+- **React components** — Use PascalCase file names (e.g., `Button.tsx`, `UserProfile.tsx`)
+- **Hooks** — Use "use" prefix with camelCase (e.g., `useAuth.ts`, `useTheme.ts`)
+
+### Testing Conventions
+
+- **Separate tests/** directory — Integration and e2e tests live outside `src/`
+- **Test file naming** — Use `.test.ts` or `.spec.ts` suffix
+- **Co-located tests** — Use `__tests__/` directories for unit tests near source files
+
+### Project Structure Conventions
+
+- **Source root** — All source code resides in `src/`
+- **Entry points** — CLI entry at `src/cli/index.ts`
+- **Core modules** — Domain logic in `src/core/` subdirectories by responsibility
+
+---
+
 ## Development
 
 ```bash
@@ -261,27 +344,6 @@ npm run lint:fix
 
 # Watch build during development
 npm run dev
-```
-
----
-
-## Project Structure
-
-```
-src/
-  cli/commands/        Command handlers (convention, docs, export, config)
-  config/              ConfigManager, Zod schemas, types, provider presets
-  core/
-    analyzer/          AST analysis engine + 6 visitors + PatternAggregator
-    classifier/        Drift classification + confidence gating
-    scorer/            Compliance scoring, violation detection, auto-fix, trends
-    generator/         Doc generation, ML pipelines, LLM client, staleness tracking
-    exporter/          Export engine + 5 formatters (Claude, Cursor, Copilot, JSON, CI)
-    git/               Git integration + pre-commit hook management
-  models/              ML model manager + tier-aware registry
-  storage/             ConventionStore, ScoreStore (sql.js), ViolationStore
-templates/             Export templates (Claude, Cursor, Copilot)
-tests/                 Unit tests, integration tests, fixture repos
 ```
 
 ---
