@@ -1,5 +1,10 @@
 import { basename } from 'node:path';
 import type { DocumentGenerator, GenerationContext, LlmRequiredContext } from './types.js';
+import {
+  EXECUTIVE_SUMMARY_INSTRUCTION,
+  EXISTING_CONTENT_INSTRUCTION,
+  STRUCTURE_INSTRUCTION,
+} from './promptHelpers.js';
 
 export class ContributingGenerator implements DocumentGenerator {
   async generate(ctx: GenerationContext): Promise<string> {
@@ -87,16 +92,22 @@ export class ContributingGenerator implements DocumentGenerator {
   }
 
   private async enhanceWithLlm(ctx: LlmRequiredContext, template: string): Promise<string> {
-    const prompt = [
+    const parts = [
       `Improve this CONTRIBUTING.md for a ${ctx.audience} audience in a ${ctx.style} style.`,
-      'Make it welcoming and actionable. Return only the final markdown.\n',
-      template,
-    ].join('\n');
+      EXECUTIVE_SUMMARY_INSTRUCTION,
+      STRUCTURE_INSTRUCTION,
+      'Make it welcoming and actionable. Include branch naming and commit message guidance where relevant.',
+    ];
+    if (ctx.existingDoc) {
+      parts.push(EXISTING_CONTENT_INSTRUCTION);
+      parts.push('', '--- EXISTING CONTRIBUTING ---', ctx.existingDoc, '--- END ---', '', '--- GENERATED TEMPLATE ---');
+    }
+    parts.push('Return only the final markdown.\n', template);
 
-    return ctx.llmClient.generate(prompt, {
-      systemPrompt: 'You are a technical writer creating contributor documentation.',
+    return ctx.llmClient.generate(parts.join('\n'), {
+      systemPrompt: 'You are a technical writer creating contributor documentation. Include an executive summary and welcoming overview.',
       temperature: 0.3,
-      maxTokens: 2000,
+      maxTokens: 2500,
     });
   }
 }

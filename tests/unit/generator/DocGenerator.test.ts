@@ -94,9 +94,9 @@ describe('ReadmeGenerator', () => {
     const result = await gen.generate(makeContext());
 
     expect(result).toContain('# test-project');
-    expect(result).toContain('## Description');
+    expect(result).toContain('## Overview');
     expect(result).toContain('## Quick Start');
-    expect(result).toContain('## Folder Structure');
+    expect(result).toContain('## Project Structure');
     expect(result).toContain('## Conventions');
   });
 
@@ -124,7 +124,7 @@ describe('ArchitectureGenerator', () => {
     const result = await gen.generate(makeContext());
 
     expect(result).toContain('# test-project — Architecture');
-    expect(result).toContain('## System Overview');
+    expect(result).toContain('## Executive Summary');
     expect(result).toContain('## Directory Structure');
   });
 
@@ -190,7 +190,7 @@ describe('OnboardingGenerator', () => {
     const result = await gen.generate(makeContext());
 
     expect(result).toContain('# Onboarding');
-    expect(result).toContain('## Project Overview');
+    expect(result).toContain('## Executive Summary');
     expect(result).toContain('## Environment Setup');
     expect(result).toContain('## Key Concepts');
     expect(result).toContain('## Common Tasks');

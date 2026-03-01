@@ -1,20 +1,31 @@
 import { basename } from 'node:path';
 import type { FolderNode } from '../../../config/types.js';
 import type { DocumentGenerator, GenerationContext, LlmRequiredContext } from './types.js';
+import {
+  EXECUTIVE_SUMMARY_INSTRUCTION,
+  EXISTING_CONTENT_INSTRUCTION,
+  STRUCTURE_INSTRUCTION,
+} from './promptHelpers.js';
 
 export class ReadmeGenerator implements DocumentGenerator {
   async generate(ctx: GenerationContext): Promise<string> {
-    const projectName = basename(ctx.projectRoot);
+    const projectName = ctx.packageMetadata?.name ?? basename(ctx.projectRoot);
     const sections: string[] = [];
 
     sections.push(`# ${projectName}\n`);
     sections.push(this.buildDescription(ctx));
-    sections.push(this.buildQuickStart(projectName));
+    sections.push(this.buildFeatures(ctx));
+    sections.push(this.buildQuickStart(projectName, ctx));
+    sections.push(this.buildPrerequisites(ctx));
+    sections.push(this.buildInstallation(projectName, ctx));
+    sections.push(this.buildUsage(ctx));
     sections.push(this.buildFolderStructure(ctx.analysis.folderStructure));
     sections.push(this.buildTechStack(ctx));
+    sections.push(this.buildConfiguration(ctx));
+    sections.push(this.buildDevelopment(ctx));
     sections.push(this.buildConventionsSummary(ctx));
 
-    const template = sections.join('\n');
+    const template = sections.filter(Boolean).join('\n');
 
     if (ctx.llmAvailable && ctx.llmClient) {
       return this.enhanceWithLlm(ctx as LlmRequiredContext, template);
@@ -23,25 +34,64 @@ export class ReadmeGenerator implements DocumentGenerator {
   }
 
   private buildDescription(ctx: GenerationContext): string {
+    const tagline = ctx.packageMetadata?.description;
     const { analysis } = ctx;
     const topPatterns = analysis.patterns
       .slice(0, 3)
       .map((p) => p.pattern)
       .join(', ');
 
+    if (tagline) {
+      return [`## Overview\n`, tagline, '', topPatterns ? `Key patterns: ${topPatterns}.` : '', ''].filter(Boolean).join('\n');
+    }
     return [
-      '## Description\n',
+      '## Overview\n',
       `A project with ${analysis.fileCount} source files.`,
       topPatterns ? `Key patterns: ${topPatterns}.` : '',
       '',
     ].filter(Boolean).join('\n');
   }
 
-  private buildQuickStart(projectName: string): string {
+  private buildFeatures(ctx: GenerationContext): string {
+    const keywords = ctx.packageMetadata?.keywords ?? [];
+    const dimensions = new Set(ctx.analysis.patterns.map((p) => p.dimension));
+    const features: string[] = [];
+
+    if (keywords.length > 0) {
+      features.push(...keywords.slice(0, 6));
+    }
+    if (dimensions.has('component')) features.push('Component-based architecture');
+    if (dimensions.has('testing')) features.push('Automated testing');
+    if (ctx.conventions.length > 0) features.push('Convention detection');
+
+    if (features.length === 0) return '';
+
+    return ['## Features\n', ...features.map((f) => `- ${f}`), '', ''].join('\n');
+  }
+
+  private buildQuickStart(projectName: string, ctx: GenerationContext): string {
+    const bin = ctx.packageMetadata?.bin;
+    const isCli = !!bin;
+    const pkgName = ctx.packageMetadata?.name ?? 'package-name';
+
+    if (isCli) {
+      const cmd = typeof bin === 'string' ? bin.split('/').pop() ?? pkgName.replace(/^@[\w-]+\//, '') : Object.keys(bin)[0] ?? 'cli';
+      return [
+        '## Quick Start\n',
+        '```bash',
+        'npm install -g @dinyangetoh/codeplug-cli',
+        `cd ${projectName}`,
+        `${cmd} convention init`,
+        `${cmd} convention audit`,
+        '```',
+        '',
+      ].join('\n');
+    }
+
     return [
       '## Quick Start\n',
       '```bash',
-      `git clone <repository-url>`,
+      'git clone <repository-url>',
       `cd ${projectName}`,
       'npm install',
       'npm run build',
@@ -51,9 +101,72 @@ export class ReadmeGenerator implements DocumentGenerator {
     ].join('\n');
   }
 
+  private buildPrerequisites(ctx: GenerationContext): string {
+    const engines = ctx.packageMetadata?.engines;
+    const nodeReq = engines?.node;
+
+    if (!nodeReq) return '';
+
+    return [
+      '## Prerequisites\n',
+      `- Node.js ${nodeReq}`,
+      '- Git (for drift detection and history analysis)',
+      '',
+    ].join('\n');
+  }
+
+  private buildInstallation(projectName: string, ctx: GenerationContext): string {
+    const bin = ctx.packageMetadata?.bin;
+    const isCli = !!bin;
+    const pkgName = ctx.packageMetadata?.name ?? 'package-name';
+
+    if (isCli) {
+      return [
+        '## Installation\n',
+        '### Global install\n',
+        '```bash',
+        `npm install -g ${pkgName}`,
+        '```',
+        '',
+        '### Local development\n',
+        '```bash',
+        'git clone <repository-url>',
+        `cd ${projectName}`,
+        'npm install',
+        'npm run build',
+        'node dist/cli/index.js --help',
+        '```',
+        '',
+      ].join('\n');
+    }
+
+    return [
+      '## Installation\n',
+      '```bash',
+      'git clone <repository-url>',
+      `cd ${projectName}`,
+      'npm install',
+      'npm run build',
+      '```',
+      '',
+    ].join('\n');
+  }
+
+  private buildUsage(ctx: GenerationContext): string {
+    const bin = ctx.packageMetadata?.bin;
+    if (!bin) return '';
+
+    const cmd = typeof bin === 'string' ? bin.split('/').pop() ?? 'codeplug' : Object.keys(bin)[0] ?? 'codeplug';
+    return [
+      '## Usage\n',
+      `Use \`${cmd}\` to run commands. See \`${cmd} --help\` for options.`,
+      '',
+    ].join('\n');
+  }
+
   private buildFolderStructure(root: FolderNode, depth = 0, maxDepth = 3): string {
     if (depth === 0) {
-      const lines = ['## Folder Structure\n', '```'];
+      const lines = ['## Project Structure\n', '```'];
       lines.push(...this.renderTree(root, 0, maxDepth));
       lines.push('```', '');
       return lines.join('\n');
@@ -82,11 +195,30 @@ export class ReadmeGenerator implements DocumentGenerator {
 
     if (techs.length === 0) return '';
 
+    return ['## Tech Stack\n', ...techs.map((t) => `- ${t}`), '', ''].join('\n');
+  }
+
+  private buildConfiguration(ctx: GenerationContext): string {
+    const hasConfig = ctx.analysis.patterns.some((p) => p.dimension === 'structure' && p.pattern.toLowerCase().includes('config'));
+    const hasCodeplug = ctx.conventions.some((c) => c.dimension === 'structure');
+    if (!hasConfig && !hasCodeplug) return '';
+
     return [
-      '## Tech Stack\n',
-      ...techs.map((t) => `- ${t}`),
+      '## Configuration\n',
+      'Project-level configuration can be adjusted in config files. See project docs for options.',
       '',
     ].join('\n');
+  }
+
+  private buildDevelopment(ctx: GenerationContext): string {
+    const scripts = ctx.packageMetadata?.scripts;
+    if (!scripts || Object.keys(scripts).length === 0) return '';
+
+    const devScripts = ['build', 'test', 'lint', 'dev', 'typecheck', 'coverage'].filter((s) => scripts[s]);
+    if (devScripts.length === 0) return '';
+
+    const lines = ['## Development\n', '```bash', ...devScripts.map((s) => `npm run ${s}`), '```', ''];
+    return lines.join('\n');
   }
 
   private buildConventionsSummary(ctx: GenerationContext): string {
@@ -112,17 +244,40 @@ export class ReadmeGenerator implements DocumentGenerator {
   }
 
   private async enhanceWithLlm(ctx: LlmRequiredContext, template: string): Promise<string> {
-    const prompt = [
-      `Improve the following README.md for a ${ctx.audience} audience in a ${ctx.style} style.`,
-      'Keep the same structure and sections but make the prose clear and professional.',
-      'Return only the final markdown.\n',
-      template,
-    ].join('\n');
+    const baseInstructions = [
+      `Improve the following README for a ${ctx.audience} audience in a ${ctx.style} style.`,
+      EXECUTIVE_SUMMARY_INSTRUCTION,
+      STRUCTURE_INSTRUCTION,
+    ];
+
+    let prompt: string;
+    if (ctx.existingDoc) {
+      prompt = [
+        ...baseInstructions,
+        EXISTING_CONTENT_INSTRUCTION,
+        'Below is the EXISTING README. Preserve valuable content: tagline, features list, usage commands, configuration, installation, development. Incorporate the generated analysis (folder structure, conventions). Return only the final markdown.',
+        '',
+        '--- EXISTING README ---',
+        ctx.existingDoc,
+        '--- END EXISTING README ---',
+        '',
+        '--- GENERATED TEMPLATE (incorporate into merged output) ---',
+        template,
+      ].join('\n');
+    } else {
+      prompt = [
+        ...baseInstructions,
+        'Include: Executive Summary, Features, Quick Start, Prerequisites, Installation, Usage, Configuration (if applicable), Development, Project Structure, Conventions. Use package metadata when provided.',
+        'Return only the final markdown.\n',
+        template,
+      ].join('\n');
+    }
 
     return ctx.llmClient.generate(prompt, {
-      systemPrompt: 'You are a technical documentation writer.',
+      systemPrompt:
+        'You are a technical documentation writer. Preserve existing high-value content when instructed. Always include a clear executive summary and section titles.',
       temperature: 0.3,
-      maxTokens: 2000,
+      maxTokens: 4000,
     });
   }
 }

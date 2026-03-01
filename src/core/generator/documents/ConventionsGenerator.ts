@@ -1,5 +1,10 @@
 import type { Convention } from '../../../config/types.js';
 import type { DocumentGenerator, GenerationContext, LlmRequiredContext } from './types.js';
+import {
+  EXECUTIVE_SUMMARY_INSTRUCTION,
+  EXISTING_CONTENT_INSTRUCTION,
+  STRUCTURE_INSTRUCTION,
+} from './promptHelpers.js';
 
 export class ConventionsGenerator implements DocumentGenerator {
   async generate(ctx: GenerationContext): Promise<string> {
@@ -20,8 +25,9 @@ export class ConventionsGenerator implements DocumentGenerator {
   private buildIntro(ctx: GenerationContext): string {
     const confirmed = ctx.conventions.filter((c) => c.confirmed).length;
     return [
-      `This document describes **${ctx.conventions.length}** conventions detected in the codebase`,
-      `(${confirmed} confirmed).\n`,
+      '## Overview\n',
+      `This document defines **${ctx.conventions.length}** conventions detected in the codebase`,
+      `(${confirmed} confirmed). Use it to ensure consistency and reduce cognitive load.\n`,
     ].join(' ');
   }
 
@@ -61,16 +67,22 @@ export class ConventionsGenerator implements DocumentGenerator {
   }
 
   private async enhanceWithLlm(ctx: LlmRequiredContext, template: string): Promise<string> {
-    const prompt = [
+    const parts = [
       `Improve this CONVENTIONS.md for a ${ctx.audience} audience in a ${ctx.style} style.`,
-      'Make descriptions concise and actionable. Return only the final markdown.\n',
-      template,
-    ].join('\n');
+      EXECUTIVE_SUMMARY_INSTRUCTION,
+      STRUCTURE_INSTRUCTION,
+      'Include an overview with a purpose statement. Make descriptions concise and actionable.',
+    ];
+    if (ctx.existingDoc) {
+      parts.push(EXISTING_CONTENT_INSTRUCTION);
+      parts.push('', '--- EXISTING CONVENTIONS ---', ctx.existingDoc, '--- END ---', '', '--- GENERATED TEMPLATE ---');
+    }
+    parts.push('Return only the final markdown.\n', template);
 
-    return ctx.llmClient.generate(prompt, {
-      systemPrompt: 'You are a technical writer documenting coding conventions.',
+    return ctx.llmClient.generate(parts.join('\n'), {
+      systemPrompt: 'You are a technical writer documenting coding conventions. Include an executive summary and clear overview.',
       temperature: 0.3,
-      maxTokens: 2000,
+      maxTokens: 2500,
     });
   }
 }

@@ -31,7 +31,7 @@ export class LlmClient {
       model: this.config.model,
       messages,
       temperature: options?.temperature,
-      max_tokens: options?.maxTokens,
+      max_completion_tokens: options?.maxTokens,
     });
 
     return response.choices[0]?.message?.content ?? '';

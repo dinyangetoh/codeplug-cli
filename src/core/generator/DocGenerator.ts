@@ -1,5 +1,6 @@
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { PackageMetadata } from './documents/types.js';
 import type {
   DocsGenerateOptions,
   DocGenerationResult,
@@ -54,15 +55,7 @@ export class DocGenerator {
       console.log(chalk.yellow('LLM unavailable — using template-only generation.'));
     }
 
-    const ctx: GenerationContext = {
-      analysis,
-      conventions,
-      projectRoot: this.projectRoot,
-      audience,
-      style,
-      llmAvailable,
-      llmClient,
-    };
+    const packageMetadata = await this.loadPackageMetadata();
 
     const written: string[] = [];
     const sourceHash = await this.stalenessTracker.computeSourceHash();
@@ -70,6 +63,19 @@ export class DocGenerator {
     for (const docName of targetDocs) {
       const generator = DOC_GENERATORS[docName];
       if (!generator) continue;
+
+      const existingDoc = await this.loadExistingDoc(docName);
+      const ctx: GenerationContext = {
+        analysis,
+        conventions,
+        projectRoot: this.projectRoot,
+        audience,
+        style,
+        llmAvailable,
+        llmClient,
+        existingDoc,
+        packageMetadata,
+      };
 
       try {
         const content = await generator.generate(ctx);
@@ -141,6 +147,33 @@ export class DocGenerator {
       return store.load();
     }
     return [];
+  }
+
+  private async loadExistingDoc(docName: string): Promise<string | undefined> {
+    try {
+      const path = join(this.projectRoot, docName);
+      return await readFile(path, 'utf-8');
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async loadPackageMetadata(): Promise<PackageMetadata | undefined> {
+    try {
+      const path = join(this.projectRoot, 'package.json');
+      const raw = await readFile(path, 'utf-8');
+      const pkg = JSON.parse(raw) as Record<string, unknown>;
+      return {
+        description: typeof pkg.description === 'string' ? pkg.description : undefined,
+        name: typeof pkg.name === 'string' ? pkg.name : undefined,
+        scripts: typeof pkg.scripts === 'object' && pkg.scripts !== null ? (pkg.scripts as Record<string, string>) : undefined,
+        bin: typeof pkg.bin === 'string' || (typeof pkg.bin === 'object' && pkg.bin !== null) ? (pkg.bin as string | Record<string, string>) : undefined,
+        keywords: Array.isArray(pkg.keywords) ? (pkg.keywords as string[]) : undefined,
+        engines: typeof pkg.engines === 'object' && pkg.engines !== null ? (pkg.engines as Record<string, string>) : undefined,
+      };
+    } catch {
+      return undefined;
+    }
   }
 
   private async prepareLlm(): Promise<{ llmAvailable: boolean; llmClient?: LlmClient }> {

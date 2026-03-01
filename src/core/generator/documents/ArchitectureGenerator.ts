@@ -1,6 +1,11 @@
 import { basename } from 'node:path';
 import type { FolderNode } from '../../../config/types.js';
 import type { DocumentGenerator, GenerationContext, LlmRequiredContext } from './types.js';
+import {
+  EXECUTIVE_SUMMARY_INSTRUCTION,
+  EXISTING_CONTENT_INSTRUCTION,
+  STRUCTURE_INSTRUCTION,
+} from './promptHelpers.js';
 
 export class ArchitectureGenerator implements DocumentGenerator {
   async generate(ctx: GenerationContext): Promise<string> {
@@ -24,11 +29,14 @@ export class ArchitectureGenerator implements DocumentGenerator {
 
   private buildOverview(ctx: GenerationContext): string {
     const { analysis } = ctx;
-    return [
-      '## System Overview\n',
+    const tagline = ctx.packageMetadata?.description;
+    const lines = ['## Executive Summary\n'];
+    if (tagline) lines.push(tagline, '');
+    lines.push(
       `The project contains ${analysis.fileCount} source files organized across ${this.countDirs(analysis.folderStructure)} directories.`,
       '',
-    ].join('\n');
+    );
+    return lines.join('\n');
   }
 
   private countDirs(node: FolderNode): number {
@@ -99,17 +107,23 @@ export class ArchitectureGenerator implements DocumentGenerator {
   }
 
   private async enhanceWithLlm(ctx: LlmRequiredContext, template: string): Promise<string> {
-    const prompt = [
+    const parts = [
       `Improve this ARCHITECTURE.md for a ${ctx.audience} audience in a ${ctx.style} style.`,
+      EXECUTIVE_SUMMARY_INSTRUCTION,
+      STRUCTURE_INSTRUCTION,
       'Add mermaid diagrams where appropriate to illustrate component relationships and data flow.',
-      'Return only the final markdown.\n',
-      template,
-    ].join('\n');
+      'Include a Key Descriptions section for important components.',
+    ];
+    if (ctx.existingDoc) {
+      parts.push(EXISTING_CONTENT_INSTRUCTION);
+      parts.push('', '--- EXISTING ARCHITECTURE ---', ctx.existingDoc, '--- END ---', '', '--- GENERATED TEMPLATE ---');
+    }
+    parts.push('Return only the final markdown.\n', template);
 
-    return ctx.llmClient.generate(prompt, {
-      systemPrompt: 'You are a software architect writing clear documentation.',
+    return ctx.llmClient.generate(parts.join('\n'), {
+      systemPrompt: 'You are a software architect writing clear documentation. Always include an executive summary and key descriptions.',
       temperature: 0.3,
-      maxTokens: 3000,
+      maxTokens: 4000,
     });
   }
 }

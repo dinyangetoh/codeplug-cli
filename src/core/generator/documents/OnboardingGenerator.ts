@@ -1,18 +1,23 @@
 import { basename } from 'node:path';
 import type { FolderNode } from '../../../config/types.js';
 import type { DocumentGenerator, GenerationContext, LlmRequiredContext } from './types.js';
+import {
+  EXECUTIVE_SUMMARY_INSTRUCTION,
+  EXISTING_CONTENT_INSTRUCTION,
+  STRUCTURE_INSTRUCTION,
+} from './promptHelpers.js';
 
 export class OnboardingGenerator implements DocumentGenerator {
   async generate(ctx: GenerationContext): Promise<string> {
-    const projectName = basename(ctx.projectRoot);
+    const projectName = ctx.packageMetadata?.name ?? basename(ctx.projectRoot);
     const sections: string[] = [];
 
     sections.push(`# Onboarding — ${projectName}\n`);
     sections.push(this.buildProjectOverview(ctx));
-    sections.push(this.buildEnvironmentSetup(projectName));
+    sections.push(this.buildEnvironmentSetup(projectName, ctx));
     sections.push(this.buildKeyConcepts(ctx));
     sections.push(this.buildArchitectureTour(ctx));
-    sections.push(this.buildCommonTasks());
+    sections.push(this.buildCommonTasks(ctx));
 
     const template = sections.join('\n');
 
@@ -24,19 +29,26 @@ export class OnboardingGenerator implements DocumentGenerator {
 
   private buildProjectOverview(ctx: GenerationContext): string {
     const { analysis } = ctx;
-    return [
-      '## Project Overview\n',
-      `This project contains ${analysis.fileCount} source files.`,
+    const description = ctx.packageMetadata?.description;
+    const lines = ['## Executive Summary\n'];
+    if (description) {
+      lines.push(`**What is ${ctx.packageMetadata?.name ?? basename(ctx.projectRoot)}?** ${description}`);
+      lines.push('');
+    }
+    lines.push(
+      `The codebase contains ${analysis.fileCount} source files.`,
       `${ctx.conventions.length} coding conventions have been identified.`,
       '',
-    ].join('\n');
+    );
+    return lines.join('\n');
   }
 
-  private buildEnvironmentSetup(projectName: string): string {
+  private buildEnvironmentSetup(projectName: string, ctx?: GenerationContext): string {
+    const nodeReq = ctx?.packageMetadata?.engines?.node ?? '20.0.0';
     return [
       '## Environment Setup\n',
       '### Prerequisites\n',
-      '- Node.js >= 20.0.0',
+      `- Node.js ${nodeReq}`,
       '- npm or yarn',
       '',
       '### Installation\n',
@@ -100,28 +112,37 @@ export class OnboardingGenerator implements DocumentGenerator {
     return purposes[name] ?? '';
   }
 
-  private buildCommonTasks(): string {
-    return [
-      '## Common Tasks\n',
-      '| Task | Command |',
-      '|------|---------|',
-      '| Build | `npm run build` |',
-      '| Run tests | `npm test` |',
-      '| Lint | `npm run lint` |',
-      '| Dev mode | `npm run dev` |',
-      '',
-    ].join('\n');
+  private buildCommonTasks(ctx?: GenerationContext): string {
+    const scripts = ctx?.packageMetadata?.scripts ?? {};
+    const defaults = [
+      ['Build', 'build'],
+      ['Run tests', 'test'],
+      ['Lint', 'lint'],
+      ['Dev mode', 'dev'],
+    ];
+    const rows = defaults.filter(([, cmd]) => scripts[cmd]).map(([task, cmd]) => `| ${task} | \`npm run ${cmd}\` |`);
+    if (rows.length === 0) {
+      rows.push('| Build | `npm run build` |', '| Run tests | `npm test` |');
+    }
+    return ['## Common Tasks\n', '| Task | Command |', '|------|---------|', ...rows, '', ''].join('\n');
   }
 
   private async enhanceWithLlm(ctx: LlmRequiredContext, template: string): Promise<string> {
-    const prompt = [
+    const parts = [
       `Improve this ONBOARDING.md for a ${ctx.audience} audience in a ${ctx.style} style.`,
-      'Make it friendly and thorough for new team members. Return only the final markdown.\n',
-      template,
-    ].join('\n');
+      EXECUTIVE_SUMMARY_INSTRUCTION,
+      STRUCTURE_INSTRUCTION,
+      'Include "What is [Project]?" with the project tagline from package metadata. Make it friendly and thorough for new team members.',
+      'Do not leave placeholder text like [brief description]. Use the provided metadata and analysis.',
+    ];
+    if (ctx.existingDoc) {
+      parts.push(EXISTING_CONTENT_INSTRUCTION);
+      parts.push('', '--- EXISTING ONBOARDING ---', ctx.existingDoc, '--- END ---', '', '--- GENERATED TEMPLATE ---');
+    }
+    parts.push('Return only the final markdown.\n', template);
 
-    return ctx.llmClient.generate(prompt, {
-      systemPrompt: 'You are a technical writer creating onboarding documentation for new developers.',
+    return ctx.llmClient.generate(parts.join('\n'), {
+      systemPrompt: 'You are a technical writer creating onboarding documentation for new developers. Include an executive summary and project tagline.',
       temperature: 0.3,
       maxTokens: 2500,
     });
